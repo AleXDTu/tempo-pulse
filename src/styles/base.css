@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* 全局暗色基底，三个窗口共用 */
+:root {
+  color-scheme: dark;
+  font-family: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: transparent;
+  color: #e7ecf3;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* 数字滚动等宽显示 */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 暗色下的原生控件微调 */
+input[type="time"],
+input[type="text"],
+select {
+  color-scheme: dark;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
