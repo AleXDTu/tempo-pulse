@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { useConfigStore } from "../../stores/config";
 import type { RestBgType, RestMode, RestStrictness, Settings } from "../../lib/types";
 
@@ -39,6 +40,15 @@ const STRICTNESSES: {
 const working = ref<Settings | null>(null);
 const saveError = ref("");
 const imageBusy = ref(false);
+const appVersion = ref("");
+
+onMounted(async () => {
+  try {
+    appVersion.value = await getVersion();
+  } catch {
+    /* 版本接口不可用时留空 */
+  }
+});
 
 const dirty = computed(() => {
   if (!working.value || !config.settings) return false;
@@ -401,5 +411,9 @@ async function save() {
         保存设置
       </button>
     </div>
+
+    <p class="pb-2 pt-4 text-center text-xs text-slate-600">
+      Tempo Pulse <span v-if="appVersion">v{{ appVersion }}</span>
+    </p>
   </div>
 </template>

@@ -112,6 +112,52 @@ function stateColor(id: string): string {
   return config.stateById(id)?.color ?? "#64748b";
 }
 
+// ---- 时间块拖动排序：按住把手拖到目标位置插入，顺序即保存顺序 ----
+const dragId = ref<string | null>(null);
+const dropIndex = ref<number | null>(null);
+
+function onDragStart(id: string, e: DragEvent) {
+  dragId.value = id;
+  e.dataTransfer?.setData("text/plain", id);
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+}
+
+function resetDrag() {
+  dragId.value = null;
+  dropIndex.value = null;
+}
+
+function onDragOverBlock(idx: number, e: DragEvent) {
+  if (!dragId.value) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const after = e.clientY > rect.top + rect.height / 2;
+  dropIndex.value = idx + (after ? 1 : 0);
+}
+
+function onDragOverList(e: DragEvent) {
+  // 仅处理落在行间空隙的事件，行上的由 onDragOverBlock 接管
+  if (!dragId.value || e.target !== e.currentTarget) return;
+  e.preventDefault();
+  const s = selected.value;
+  if (s) dropIndex.value = s.blocks.length;
+}
+
+function onDrop() {
+  const s = selected.value;
+  const id = dragId.value;
+  const to = dropIndex.value;
+  resetDrag();
+  if (!s || id === null || to === null) return;
+  const from = s.blocks.findIndex((b) => b.id === id);
+  if (from < 0) return;
+  const [moved] = s.blocks.splice(from, 1);
+  let target = to;
+  if (from < target) target -= 1;
+  s.blocks.splice(target, 0, moved);
+}
+
 async function save() {
   saveError.value = "";
   if (invalidCount.value > 0) {
@@ -218,9 +264,16 @@ async function save() {
       <!-- 时间块列表 -->
       <section
         class="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+        @dragover="onDragOverList"
+        @drop.prevent="onDrop"
       >
         <div class="flex items-center justify-between">
-          <h3 class="text-sm font-medium text-slate-300">时间块</h3>
+          <h3 class="text-sm font-medium text-slate-300">
+            时间块
+            <span class="ml-1 text-xs font-normal text-slate-500">
+              按住 ⋮⋮ 拖动可调整顺序
+            </span>
+          </h3>
           <button
             class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
             @click="addBlock"
@@ -237,15 +290,26 @@ async function save() {
         </p>
 
         <div
-          v-for="b in selected.blocks"
+          v-for="(b, idx) in selected.blocks"
           :key="b.id"
-          class="flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2"
-          :class="
+          class="flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 transition"
+          :class="[
             blockInvalid(b)
               ? 'border-red-400/40 bg-red-400/5'
-              : 'border-white/5 bg-white/[0.02]'
-          "
+              : 'border-white/5 bg-white/[0.02]',
+            dragId === b.id ? 'opacity-40' : '',
+            dragId && dropIndex === idx ? 'border-t-2 border-t-sky-400' : '',
+          ]"
+          @dragover="onDragOverBlock(idx, $event)"
+          @drop.prevent="onDrop"
         >
+          <span
+            class="cursor-grab select-none px-0.5 text-xs leading-none text-slate-600 transition hover:text-slate-300 active:cursor-grabbing"
+            draggable="true"
+            title="拖动调整顺序"
+            @dragstart="onDragStart(b.id, $event)"
+            @dragend="resetDrag"
+          >⋮⋮</span>
           <span
             class="h-8 w-1.5 shrink-0 rounded-full"
             :style="{ backgroundColor: stateColor(b.stateId) }"
@@ -277,6 +341,12 @@ async function save() {
             ✕
           </button>
         </div>
+
+        <!-- 列表末尾的插入指示线 -->
+        <div
+          v-if="dragId && dropIndex === selected.blocks.length"
+          class="mx-3 h-0.5 rounded bg-sky-400/80"
+        />
       </section>
 
       <!-- 保存 -->
