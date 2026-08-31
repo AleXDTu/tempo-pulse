@@ -112,50 +112,68 @@ function stateColor(id: string): string {
   return config.stateById(id)?.color ?? "#64748b";
 }
 
-// ---- 时间块拖动排序：按住把手拖到目标位置插入，顺序即保存顺序 ----
+// ---- 时间块拖动排序（指针事件实现）----
+// WKWebView 里原生 HTML5 拖拽（draggable/drop）不生效，因此用
+// pointerdown/move/up 自实现：按住把手拖动，列表实时重排。
 const dragId = ref<string | null>(null);
-const dropIndex = ref<number | null>(null);
+const listEl = ref<HTMLElement | null>(null);
 
-function onDragStart(id: string, e: DragEvent) {
-  dragId.value = id;
-  e.dataTransfer?.setData("text/plain", id);
-  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+function rowEls(): HTMLElement[] {
+  return listEl.value
+    ? Array.from(listEl.value.querySelectorAll<HTMLElement>("[data-block-id]"))
+    : [];
 }
 
-function resetDrag() {
-  dragId.value = null;
-  dropIndex.value = null;
-}
-
-function onDragOverBlock(idx: number, e: DragEvent) {
-  if (!dragId.value) return;
-  e.preventDefault();
-  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  const after = e.clientY > rect.top + rect.height / 2;
-  dropIndex.value = idx + (after ? 1 : 0);
-}
-
-function onDragOverList(e: DragEvent) {
-  // 仅处理落在行间空隙的事件，行上的由 onDragOverBlock 接管
-  if (!dragId.value || e.target !== e.currentTarget) return;
-  e.preventDefault();
+/** 根据指针 Y 计算目标下标并实时移动元素（在行中点之上则插到它前面） */
+function dragTo(clientY: number) {
   const s = selected.value;
-  if (s) dropIndex.value = s.blocks.length;
-}
+  if (!s || !dragId.value) return;
 
-function onDrop() {
-  const s = selected.value;
-  const id = dragId.value;
-  const to = dropIndex.value;
-  resetDrag();
-  if (!s || id === null || to === null) return;
-  const from = s.blocks.findIndex((b) => b.id === id);
+  // 指针接近列表可视区上下边缘时滚动容器
+  const scroller = listEl.value?.closest("main");
+  if (scroller) {
+    const sr = scroller.getBoundingClientRect();
+    if (clientY < sr.top + 48) scroller.scrollTop -= 12;
+    else if (clientY > sr.bottom - 48) scroller.scrollTop += 12;
+  }
+
+  const rows = rowEls();
+  let target = rows.length;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i].getBoundingClientRect();
+    if (clientY < r.top + r.height / 2) {
+      target = i;
+      break;
+    }
+  }
+  const from = s.blocks.findIndex((b) => b.id === dragId.value);
   if (from < 0) return;
+  let to = target;
+  if (from < to) to -= 1;
+  if (to === from) return;
   const [moved] = s.blocks.splice(from, 1);
-  let target = to;
-  if (from < target) target -= 1;
-  s.blocks.splice(target, 0, moved);
+  s.blocks.splice(to, 0, moved);
+}
+
+function startDrag(id: string, e: PointerEvent) {
+  e.preventDefault(); // 阻止文本选择/原生拖拽
+  dragId.value = id;
+  try {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  } catch {
+    /* 捕获失败也能靠 window 监听继续 */
+  }
+  const move = (ev: PointerEvent) => dragTo(ev.clientY);
+  const up = () => {
+    dragId.value = null;
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
+  dragTo(e.clientY);
 }
 
 async function save() {
@@ -263,9 +281,8 @@ async function save() {
 
       <!-- 时间块列表 -->
       <section
+        ref="listEl"
         class="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
-        @dragover="onDragOverList"
-        @drop.prevent="onDrop"
       >
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-medium text-slate-300">
@@ -290,25 +307,23 @@ async function save() {
         </p>
 
         <div
-          v-for="(b, idx) in selected.blocks"
+          v-for="b in selected.blocks"
           :key="b.id"
+          data-block-id
           class="flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 transition"
           :class="[
             blockInvalid(b)
               ? 'border-red-400/40 bg-red-400/5'
               : 'border-white/5 bg-white/[0.02]',
-            dragId === b.id ? 'opacity-40' : '',
-            dragId && dropIndex === idx ? 'border-t-2 border-t-sky-400' : '',
+            dragId === b.id
+              ? 'opacity-50 ring-1 ring-sky-400/40'
+              : '',
           ]"
-          @dragover="onDragOverBlock(idx, $event)"
-          @drop.prevent="onDrop"
         >
           <span
-            class="cursor-grab select-none px-0.5 text-xs leading-none text-slate-600 transition hover:text-slate-300 active:cursor-grabbing"
-            draggable="true"
+            class="cursor-grab touch-none select-none px-0.5 text-xs leading-none text-slate-600 transition hover:text-slate-300 active:cursor-grabbing"
             title="拖动调整顺序"
-            @dragstart="onDragStart(b.id, $event)"
-            @dragend="resetDrag"
+            @pointerdown="startDrag(b.id, $event)"
           >⋮⋮</span>
           <span
             class="h-8 w-1.5 shrink-0 rounded-full"
@@ -341,12 +356,6 @@ async function save() {
             ✕
           </button>
         </div>
-
-        <!-- 列表末尾的插入指示线 -->
-        <div
-          v-if="dragId && dropIndex === selected.blocks.length"
-          class="mx-3 h-0.5 rounded bg-sky-400/80"
-        />
       </section>
 
       <!-- 保存 -->
