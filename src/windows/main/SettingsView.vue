@@ -48,6 +48,7 @@ onMounted(async () => {
   } catch {
     /* 版本接口不可用时留空 */
   }
+  await loadHolidayInfo();
 });
 
 const dirty = computed(() => {
@@ -80,6 +81,47 @@ async function openConfigDir() {
     await invoke("open_config_dir");
   } catch (e) {
     saveError.value = String(e);
+  }
+}
+
+// ---- 法定节假日自动数据 ----
+const holidayYears = ref<number[]>([]);
+const holidayUpdating = ref(false);
+const holidayMsg = ref("");
+const holidayMsgOk = ref(true);
+
+const lastUpdatedText = computed(() => {
+  const raw = legal.value?.lastUpdated;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime())
+    ? null
+    : d.toLocaleString("zh-CN", { hour12: false });
+});
+
+async function loadHolidayInfo() {
+  try {
+    const info = await invoke<{ years: number[]; lastUpdated: string | null }>(
+      "get_holiday_info",
+    );
+    holidayYears.value = info.years;
+  } catch {
+    /* 忽略，界面显示占位 */
+  }
+}
+
+async function checkHolidayUpdate() {
+  holidayUpdating.value = true;
+  holidayMsg.value = "";
+  try {
+    holidayMsg.value = await invoke<string>("check_holiday_update");
+    holidayMsgOk.value = true;
+    await loadHolidayInfo();
+  } catch (e) {
+    holidayMsg.value = String(e);
+    holidayMsgOk.value = false;
+  } finally {
+    holidayUpdating.value = false;
   }
 }
 
@@ -321,28 +363,59 @@ async function save() {
         <input v-model="legal.enabled" type="checkbox" class="h-5 w-5 accent-sky-400" />
       </label>
 
-      <div
-        class="flex items-center justify-between rounded-xl bg-white/[0.02] px-4 py-3"
-        :class="legal.enabled ? '' : 'opacity-40'"
-      >
-        <div class="flex gap-2 text-xs">
+      <div class="space-y-3 rounded-xl bg-white/[0.02] px-4 py-3" :class="legal.enabled ? '' : 'opacity-40'">
+        <!-- 数据概况 -->
+        <div class="flex flex-wrap items-center gap-2 text-xs">
           <span class="rounded-full bg-emerald-400/10 px-3 py-1 text-emerald-300">
-            内置节假日 {{ legal.holidays.length }} 天
-          </span>
-          <span class="rounded-full bg-orange-400/10 px-3 py-1 text-orange-300">
-            补班 {{ legal.workdays.length }} 天
+            数据来源 holiday-cn
           </span>
           <span class="rounded-full bg-white/5 px-3 py-1 text-slate-400">
-            默认 2026 年国务院官方安排
+            已加载 {{ holidayYears.length > 0 ? holidayYears.join(" / ") : "—" }} 年
+          </span>
+          <span v-if="lastUpdatedText" class="rounded-full bg-white/5 px-3 py-1 text-slate-400">
+            更新于 {{ lastUpdatedText }}
+          </span>
+          <span v-else class="rounded-full bg-white/5 px-3 py-1 text-slate-400">
+            使用内置离线数据
           </span>
         </div>
-        <button
-          class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
-          title="config.json 中的 legalDays，可手动更新次年安排"
-          @click="openConfigDir"
-        >
-          打开数据文件
-        </button>
+
+        <!-- 更新控制 -->
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-3">
+            <button
+              class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+              :disabled="holidayUpdating || !legal.enabled"
+              @click="checkHolidayUpdate"
+            >
+              {{ holidayUpdating ? "检查中…" : "立即检查更新" }}
+            </button>
+            <label class="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400">
+              <input
+                v-model="legal.autoUpdate"
+                type="checkbox"
+                class="h-4 w-4 accent-sky-400"
+                :disabled="!legal.enabled"
+              />
+              自动更新（每 24 小时）
+            </label>
+          </div>
+          <button
+            class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
+            title="config.json 中可手动补充特殊日期"
+            @click="openConfigDir"
+          >
+            打开数据文件
+          </button>
+        </div>
+
+        <p v-if="holidayMsg" :class="holidayMsgOk ? 'text-xs text-emerald-300/90' : 'text-xs text-red-400'">
+          {{ holidayMsg }}
+        </p>
+        <p class="text-xs text-slate-500">
+          数据在国务院安排公布后自动跟随更新；如需手动补充特殊日期，可编辑 config.json 中的
+          legalDays.holidays / workdays
+        </p>
       </div>
     </section>
 

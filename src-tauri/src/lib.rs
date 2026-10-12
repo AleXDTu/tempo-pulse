@@ -4,6 +4,7 @@
 
 mod commands;
 mod engine;
+mod holidays;
 mod model;
 mod state;
 mod tray;
@@ -62,6 +63,7 @@ pub fn run() {
             app.manage(AppState {
                 config: RwLock::new(config),
                 engine: RwLock::new(engine::EngineState::default()),
+                holidays: RwLock::new(holidays::HolidayStore::load(&config_dir)),
                 config_path,
             });
 
@@ -70,6 +72,7 @@ pub fn run() {
             windows::create_rest(app.handle())?;
             register_shortcuts(app.handle());
             tauri::async_runtime::spawn(engine::run(app.handle().clone()));
+            tauri::async_runtime::spawn(holidays::run_auto_update(app.handle().clone()));
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -103,6 +106,8 @@ pub fn run() {
             commands::open_config_dir,
             commands::skip_current_block,
             commands::set_running,
+            commands::check_holiday_update,
+            commands::get_holiday_info,
             commands::dismiss_rest_screen,
             commands::postpone_rest_screen,
             commands::save_rest_bg_image,

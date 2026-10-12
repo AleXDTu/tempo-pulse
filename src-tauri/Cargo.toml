@@ -1,6 +1,6 @@
 [package]
 name = "tempo-pulse"
-version = "1.0.2"
+version = "1.1.0"
 description = "Tempo Pulse - 自定义时间节奏的桌面伴侣"
 authors = ["evanft"]
 edition = "2021"
@@ -29,3 +29,4 @@ chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["time"] }
 uuid = { version = "1", features = ["v4"] }
 base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

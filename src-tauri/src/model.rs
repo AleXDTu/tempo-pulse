@@ -81,39 +81,74 @@ fn default_rest_mode() -> String {
     "fullscreen".into()
 }
 
-/// 法定工作日：法定节假日（放假）与调休补班日（上班），"YYYY-MM-DD"
-/// 默认内置 2026 年国务院办公厅官方安排（国办发明电〔2025〕，2025-11-04 发布）：
-/// 元旦 1.1-1.3（1.4 班）/ 春节 2.15-2.23（2.14、2.28 班）/ 清明 4.4-4.6 /
-/// 劳动节 5.1-5.5（5.9 班）/ 端午 6.19-6.21 / 中秋 9.25-9.27 /
-/// 国庆 10.1-10.7（9.20、10.10 班）
+/// 法定工作日设置。
+/// 自动数据来自 holiday-cn（内置离线 + 可自动更新，见 holidays.rs）；
+/// `holidays` / `workdays` 仅作为用户「手动补充」，通常留空。
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LegalDaysSettings {
     pub enabled: bool,
     pub holidays: Vec<String>,
     pub workdays: Vec<String>,
+    /// 自动更新节假日数据（holiday-cn）
+    #[serde(default = "default_true")]
+    pub auto_update: bool,
+    #[serde(default)]
+    pub last_updated: Option<String>,
 }
 
+/// v1.0.x 内置的旧默认数据：仅用于把「未修改过」的存量配置迁移为跟随自动数据
+pub const LEGACY_HOLIDAYS: [&str; 33] = [
+    "2026-01-01", "2026-01-02", "2026-01-03", //
+    "2026-02-15", "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19",
+    "2026-02-20", "2026-02-21", "2026-02-22", "2026-02-23", //
+    "2026-04-04", "2026-04-05", "2026-04-06", //
+    "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05", //
+    "2026-06-19", "2026-06-20", "2026-06-21", //
+    "2026-09-25", "2026-09-26", "2026-09-27", //
+    "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05",
+    "2026-10-06", "2026-10-07",
+];
+pub const LEGACY_WORKDAYS: [&str; 6] = [
+    "2026-01-04", "2026-02-14", "2026-02-28", "2026-05-09", "2026-09-20",
+    "2026-10-10",
+];
+
 fn default_legal_days() -> LegalDaysSettings {
-    let holidays = [
-        "2026-01-01", "2026-01-02", "2026-01-03", //
-        "2026-02-15", "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19",
-        "2026-02-20", "2026-02-21", "2026-02-22", "2026-02-23", //
-        "2026-04-04", "2026-04-05", "2026-04-06", //
-        "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05", //
-        "2026-06-19", "2026-06-20", "2026-06-21", //
-        "2026-09-25", "2026-09-26", "2026-09-27", //
-        "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05",
-        "2026-10-06", "2026-10-07",
-    ];
-    let workdays = [
-        "2026-01-04", "2026-02-14", "2026-02-28", "2026-05-09", "2026-09-20",
-        "2026-10-10",
-    ];
     LegalDaysSettings {
         enabled: true,
-        holidays: holidays.iter().map(|s| s.to_string()).collect(),
-        workdays: workdays.iter().map(|s| s.to_string()).collect(),
+        holidays: vec![],
+        workdays: vec![],
+        auto_update: true,
+        last_updated: None,
+    }
+}
+
+/// 迁移 v1.0.x 的硬编码默认数据：内容与旧默认一致视为「未修改」→ 清空以跟随自动数据；
+/// 用户改过 → 保留为手动补充。返回是否发生了迁移。
+pub fn migrate_legacy_legal_days(cfg: &mut AppConfig) -> bool {
+    let legal = &mut cfg.settings.legal_days;
+    let legacy_holidays: Vec<String> = LEGACY_HOLIDAYS.iter().map(|s| s.to_string()).collect();
+    let legacy_workdays: Vec<String> = LEGACY_WORKDAYS.iter().map(|s| s.to_string()).collect();
+    let same = legal.holidays == legacy_holidays && legal.workdays == legacy_workdays;
+    // 排序后比较，容忍用户端可能的顺序差异
+    let same_sorted = {
+        let mut h1 = legal.holidays.clone();
+        let mut h2 = legacy_holidays.clone();
+        h1.sort();
+        h2.sort();
+        let mut w1 = legal.workdays.clone();
+        let mut w2 = legacy_workdays.clone();
+        w1.sort();
+        w2.sort();
+        h1 == h2 && w1 == w2
+    };
+    if same || same_sorted {
+        legal.holidays = vec![];
+        legal.workdays = vec![];
+        true
+    } else {
+        false
     }
 }
 
@@ -192,11 +227,18 @@ impl Default for AppConfig {
     }
 }
 
-/// 读取配置；文件不存在或损坏时回退默认值并立即落盘
+/// 读取配置；文件不存在或损坏时回退默认值并立即落盘。
+/// v1.0.x 的硬编码法定日数据在此迁移为「跟随自动数据」。
 pub fn load_or_default(path: &Path) -> AppConfig {
     match std::fs::read_to_string(path) {
-        Ok(content) => match serde_json::from_str(&content) {
-            Ok(cfg) => cfg,
+        Ok(content) => match serde_json::from_str::<AppConfig>(&content) {
+            Ok(mut cfg) => {
+                if migrate_legacy_legal_days(&mut cfg) {
+                    println!("[tempo-pulse] 已迁移旧版法定日数据 → 跟随自动更新");
+                    let _ = save(path, &cfg);
+                }
+                cfg
+            }
             Err(e) => {
                 eprintln!("[tempo-pulse] 配置解析失败，使用默认配置: {e}");
                 let cfg = AppConfig::default();
@@ -236,6 +278,48 @@ mod tests {
         assert!(!cfg.settings.running);
         assert!(!cfg.settings.onboarded);
         assert_eq!(cfg.states.len(), 3); // 引导用的三个基础状态
+        // 默认不再硬编码节假日，改为跟随自动数据
+        assert!(cfg.settings.legal_days.holidays.is_empty());
+        assert!(cfg.settings.legal_days.workdays.is_empty());
+        assert!(cfg.settings.legal_days.auto_update);
+    }
+
+    #[test]
+    fn migration_clears_unmodified_legacy_data() {
+        let mut cfg = AppConfig::default();
+        cfg.settings.legal_days.holidays = LEGACY_HOLIDAYS.iter().map(|s| s.to_string()).collect();
+        cfg.settings.legal_days.workdays = LEGACY_WORKDAYS.iter().map(|s| s.to_string()).collect();
+        assert!(migrate_legacy_legal_days(&mut cfg));
+        assert!(cfg.settings.legal_days.holidays.is_empty());
+        assert!(cfg.settings.legal_days.workdays.is_empty());
+    }
+
+    #[test]
+    fn migration_keeps_user_modified_data() {
+        let mut cfg = AppConfig::default();
+        cfg.settings.legal_days.holidays = vec!["2027-01-01".into()]; // 用户手改过
+        assert!(!migrate_legacy_legal_days(&mut cfg));
+        assert_eq!(cfg.settings.legal_days.holidays, vec!["2027-01-01".to_string()]);
+    }
+
+    #[test]
+    fn legacy_config_deserializes_and_migrates() {
+        // v1.0.x 的完整配置（含旧硬编码数据）应能加载并完成迁移
+        let json = serde_json::json!({
+            "states": [],
+            "schedules": [],
+            "settings": {
+                "mini": {"x": null, "y": null, "visible": true},
+                "restScreen": {"bgType": "color", "bgValue": "#000000", "title": "t", "subtitle": "s", "strictness": "skippable"},
+                "legalDays": {"enabled": true, "holidays": Vec::from(LEGACY_HOLIDAYS), "workdays": Vec::from(LEGACY_WORKDAYS)},
+                "running": true,
+                "autostart": false,
+                "notifications": true
+            }
+        });
+        let mut cfg: AppConfig = serde_json::from_value(json).unwrap();
+        assert!(migrate_legacy_legal_days(&mut cfg));
+        assert!(cfg.settings.legal_days.holidays.is_empty());
     }
 
     #[test]

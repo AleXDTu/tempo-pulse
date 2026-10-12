@@ -216,7 +216,25 @@ pub fn save_rest_bg_image(app: AppHandle, data_url: String) -> Result<String, St
     Ok(path.to_string_lossy().into_owned())
 }
 
-fn broadcast_config(app: &AppHandle) {
+/// 节假日数据概况（供设置页展示）
+#[tauri::command]
+pub fn get_holiday_info(app: AppHandle) -> serde_json::Value {
+    let st = app.state::<AppState>();
+    let store = st.holidays.read().unwrap();
+    let last_updated = st.config.read().unwrap().settings.legal_days.last_updated.clone();
+    serde_json::json!({
+        "years": store.year_list(),
+        "lastUpdated": last_updated,
+    })
+}
+
+/// 手动触发节假日数据检查更新，返回结果文案
+#[tauri::command]
+pub async fn check_holiday_update(app: AppHandle) -> Result<String, String> {
+    crate::holidays::check_update(&app).await
+}
+
+pub(crate) fn broadcast_config(app: &AppHandle) {
     let cfg = {
         let st = app.state::<AppState>();
         let cfg = st.config.read().unwrap().clone();

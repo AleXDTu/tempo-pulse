@@ -51,13 +51,16 @@ export interface RestScreenSettings {
   strictness: RestStrictness;
 }
 
-/** 法定工作日数据，日期格式 "YYYY-MM-DD"；与 Rust 侧同步 */
+/** 法定工作日设置；自动数据来自 holiday-cn，holidays/workdays 仅作手动补充 */
 export interface LegalDaysSettings {
   enabled: boolean;
-  /** 法定节假日（放假日） */
+  /** 手动补充的放假日（"YYYY-MM-DD"，可选） */
   holidays: string[];
-  /** 调休补班日（上班日） */
+  /** 手动补充的补班日（可选） */
   workdays: string[];
+  /** 自动更新节假日数据（holiday-cn） */
+  autoUpdate: boolean;
+  lastUpdated: string | null;
 }
 
 export interface Settings {

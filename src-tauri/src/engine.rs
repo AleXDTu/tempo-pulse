@@ -1,6 +1,7 @@
 //! 节奏引擎：纯函数快照计算（可单测）+ 常驻 tick 循环。
 //! 引擎跑在 Rust 进程，窗口只是订阅者。
 
+use crate::holidays::HolidayStore;
 use crate::model::{weekday_index, LegalDaysSettings, PulseState, Schedule, StateKind};
 use crate::state::AppState;
 use crate::{tray, windows};
@@ -78,7 +79,12 @@ fn fmt_hhmm(mins: u32) -> String {
 
 /// 计算某日的「等效周几」，用于时间表匹配：
 /// 调休补班日 → 1（工作日档）；法定节假日 → 6（休息日档）；其余按真实周几。
-pub fn effective_weekday(date: NaiveDate, legal: Option<&LegalDaysSettings>) -> u8 {
+/// 查找顺序：用户手动补充（legalDays）→ 自动数据（HolidayStore，内置/下载）。
+pub fn effective_weekday(
+    date: NaiveDate,
+    legal: Option<&LegalDaysSettings>,
+    holidays: Option<&HolidayStore>,
+) -> u8 {
     let real = weekday_index(date);
     let Some(legal) = legal else { return real };
     if !legal.enabled {
@@ -91,6 +97,14 @@ pub fn effective_weekday(date: NaiveDate, legal: Option<&LegalDaysSettings>) -> 
     if legal.holidays.iter().any(|d| d == &ds) {
         return 6;
     }
+    if let Some(store) = holidays {
+        if store.is_work_day(date) {
+            return 1;
+        }
+        if store.is_off_day(date) {
+            return 6;
+        }
+    }
     real
 }
 
@@ -98,8 +112,9 @@ pub fn active_schedule<'a>(
     schedules: &'a [Schedule],
     date: NaiveDate,
     legal: Option<&LegalDaysSettings>,
+    holidays: Option<&HolidayStore>,
 ) -> Option<&'a Schedule> {
-    let day = effective_weekday(date, legal);
+    let day = effective_weekday(date, legal, holidays);
     schedules
         .iter()
         .find(|s| s.active_days.contains(&day))
@@ -112,6 +127,7 @@ pub fn compute_snapshot(
     schedules: &[Schedule],
     states: &[PulseState],
     legal: Option<&LegalDaysSettings>,
+    holidays: Option<&HolidayStore>,
     running: bool,
     date: NaiveDate,
     time: NaiveTime,
@@ -123,7 +139,7 @@ pub fn compute_snapshot(
 
     let state_of = |id: &str| states.iter().find(|s| s.id == id).cloned();
 
-    let schedule = active_schedule(schedules, date, legal);
+    let schedule = active_schedule(schedules, date, legal, holidays);
     let blocks = schedule.map(|s| s.blocks.as_slice()).unwrap_or(&[]);
 
     // 当前块：start <= now < end，取 start 最晚
@@ -244,10 +260,12 @@ pub fn current_snapshot(app: &AppHandle) -> PulseSnapshot {
     let now = Local::now();
     let config = st.config.read().unwrap();
     let engine = st.engine.read().unwrap();
+    let store = st.holidays.read().unwrap();
     compute_snapshot(
         &config.schedules,
         &config.states,
         Some(&config.settings.legal_days),
+        Some(&store),
         config.settings.running,
         now.date_naive(),
         now.time(),
@@ -265,6 +283,7 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let st = app.state::<AppState>();
     let config = st.config.read().unwrap();
     let mut engine = st.engine.write().unwrap();
+    let store = st.holidays.read().unwrap();
 
     // 过期的跳过标记（跨天）自动清除
     if let Some(sk) = &engine.skipped {
@@ -276,6 +295,7 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         &config.schedules,
         &config.states,
         Some(&config.settings.legal_days),
+        Some(&store),
         config.settings.running,
         now.date_naive(),
         now.time(),
@@ -284,6 +304,7 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let notifications = config.settings.notifications;
     let running = config.settings.running;
     drop(config);
+    drop(store);
 
     // 停止中：不检测切换、不通知、不弹休息屏，只推快照
     if !running {
@@ -469,6 +490,7 @@ mod tests {
             &[schedule()],
             &states(),
             None,
+            None,
             true,
             friday(),
             t(10, 30, 0),
@@ -488,10 +510,10 @@ mod tests {
         let s = &[schedule()];
         let st = states();
         // 12:00:00 恰好切到休息块
-        let snap = compute_snapshot(s, &st, None, true, friday(), t(12, 0, 0), None);
+        let snap = compute_snapshot(s, &st, None, None, true, friday(), t(12, 0, 0), None);
         assert_eq!(snap.block_id.as_deref(), Some("b2"));
         // 13:30:00 恰好离开休息块
-        let snap = compute_snapshot(s, &st, None, true, friday(), t(13, 30, 0), None);
+        let snap = compute_snapshot(s, &st, None, None, true, friday(), t(13, 30, 0), None);
         assert_eq!(snap.block_id.as_deref(), Some("b3"));
     }
 
@@ -500,6 +522,7 @@ mod tests {
         let snap = compute_snapshot(
             &[schedule()],
             &states(),
+            None,
             None,
             true,
             friday(),
@@ -519,6 +542,7 @@ mod tests {
             &[schedule()],
             &states(),
             None,
+            None,
             true,
             friday(),
             t(10, 0, 0),
@@ -533,6 +557,7 @@ mod tests {
             &[schedule()],
             &states(),
             None,
+            None,
             true,
             NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(), // 上周五
             t(10, 0, 0),
@@ -544,7 +569,7 @@ mod tests {
     #[test]
     fn schedule_picked_by_weekday() {
         // 周日无匹配（周末模板在另一个数组里才会命中）
-        let snap = compute_snapshot(&[schedule()], &states(), None, true, sunday(), t(10, 0, 0), None);
+        let snap = compute_snapshot(&[schedule()], &states(), None, None, true, sunday(), t(10, 0, 0), None);
         assert!(snap.is_idle);
         assert_eq!(snap.schedule_name, None);
     }
@@ -559,7 +584,7 @@ mod tests {
             state_id: "rest".into(),
             note: None,
         });
-        let snap = compute_snapshot(&[s], &states(), None, true, friday(), t(11, 20, 0), None);
+        let snap = compute_snapshot(&[s], &states(), None, None, true, friday(), t(11, 20, 0), None);
         assert_eq!(snap.block_id.as_deref(), Some("b4"));
     }
 
@@ -571,6 +596,8 @@ mod tests {
             // 2026-05-01（周五）为法定假日，2026-05-09（周六）为补班日
             holidays: vec!["2026-05-01".into(), "2026-05-02".into()],
             workdays: vec!["2026-05-09".into()],
+            auto_update: true,
+            last_updated: None,
         }
     }
 
@@ -590,20 +617,20 @@ mod tests {
         let may1 = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(); // 周五·法定假日
         let may9 = NaiveDate::from_ymd_opt(2026, 5, 9).unwrap(); // 周六·补班
         let may4 = NaiveDate::from_ymd_opt(2026, 5, 4).unwrap(); // 周一·普通
-        assert_eq!(effective_weekday(may1, Some(&legal())), 6);
-        assert_eq!(effective_weekday(may9, Some(&legal())), 1);
-        assert_eq!(effective_weekday(may4, Some(&legal())), 1);
+        assert_eq!(effective_weekday(may1, Some(&legal()), None), 6);
+        assert_eq!(effective_weekday(may9, Some(&legal()), None), 1);
+        assert_eq!(effective_weekday(may4, Some(&legal()), None), 1);
         // 关闭后按真实周几
         let off = LegalDaysSettings { enabled: false, ..legal() };
-        assert_eq!(effective_weekday(may1, Some(&off)), 5);
-        assert_eq!(effective_weekday(may1, None), 5);
+        assert_eq!(effective_weekday(may1, Some(&off), None), 5);
+        assert_eq!(effective_weekday(may1, None, None), 5);
     }
 
     #[test]
     fn statutory_holiday_hits_restday_schedule() {
         let s = workday_and_restday_schedules();
         let may1 = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
-        let snap = compute_snapshot(&s, &states(), Some(&legal()), true, may1, t(10, 0, 0), None);
+        let snap = compute_snapshot(&s, &states(), Some(&legal()), None, true, may1, t(10, 0, 0), None);
         assert_eq!(snap.schedule_name.as_deref(), Some("周末"));
         assert!(snap.is_idle);
     }
@@ -612,9 +639,36 @@ mod tests {
     fn makeup_workday_hits_workday_schedule() {
         let s = workday_and_restday_schedules();
         let may9 = NaiveDate::from_ymd_opt(2026, 5, 9).unwrap();
-        let snap = compute_snapshot(&s, &states(), Some(&legal()), true, may9, t(10, 0, 0), None);
+        let snap = compute_snapshot(&s, &states(), Some(&legal()), None, true, may9, t(10, 0, 0), None);
         assert_eq!(snap.schedule_name.as_deref(), Some("工作日"));
         assert_eq!(snap.block_id.as_deref(), Some("b1"));
+    }
+
+    #[test]
+    fn builtin_holiday_cn_data_parses() {
+        // 内置 2026 数据：33 天假期 + 6 天补班（与国务院通知一致）
+        let store = HolidayStore::load(std::path::Path::new("/nonexistent"));
+        let y = store.years.get(&2026).expect("内置 2026 数据应存在");
+        assert_eq!(y.off_days.len(), 33);
+        assert_eq!(y.work_days.len(), 6);
+        assert!(y.off_days.contains(&"2026-10-01".to_string()));
+        assert!(y.work_days.contains(&"2026-10-10".to_string()));
+    }
+
+    #[test]
+    fn effective_weekday_uses_holiday_store() {
+        let store = HolidayStore::load(std::path::Path::new("/nonexistent"));
+        let on = LegalDaysSettings { enabled: true, holidays: vec![], workdays: vec![], auto_update: true, last_updated: None };
+        // 国庆 10-01（周四）→ 休息日档；补班 10-10（周六）→ 工作日档
+        let oct1 = NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
+        let oct10 = NaiveDate::from_ymd_opt(2026, 10, 10).unwrap();
+        let oct12 = NaiveDate::from_ymd_opt(2026, 10, 12).unwrap(); // 普通周一
+        assert_eq!(effective_weekday(oct1, Some(&on), Some(&store)), 6);
+        assert_eq!(effective_weekday(oct10, Some(&on), Some(&store)), 1);
+        assert_eq!(effective_weekday(oct12, Some(&on), Some(&store)), 1);
+        // 手动补充优先于自动数据（把普通周一标为假）
+        let manual = LegalDaysSettings { enabled: true, holidays: vec!["2026-10-12".into()], workdays: vec![], auto_update: true, last_updated: None };
+        assert_eq!(effective_weekday(oct12, Some(&manual), Some(&store)), 6);
     }
 
     #[test]
@@ -622,6 +676,7 @@ mod tests {
         let snap = compute_snapshot(
             &[schedule()],
             &states(),
+            None,
             None,
             false,
             friday(),
@@ -641,7 +696,7 @@ mod tests {
         let off = LegalDaysSettings { enabled: false, ..legal() };
         let s = workday_and_restday_schedules();
         let may1 = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(); // 周五
-        let snap = compute_snapshot(&s, &states(), Some(&off), true, may1, t(10, 0, 0), None);
+        let snap = compute_snapshot(&s, &states(), Some(&off), None, true, may1, t(10, 0, 0), None);
         assert_eq!(snap.schedule_name.as_deref(), Some("工作日"));
         assert!(!snap.is_idle);
     }
