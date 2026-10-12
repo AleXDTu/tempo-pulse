@@ -1,62 +1,76 @@
-# Tempo Pulse - 脉动时间节奏
+<div align="center">
 
-自定义时间表的桌面节奏伴侣：工作的 8 小时里，什么时间认真工作、什么时间摸鱼、什么时间休息，全部自己定义。
+<img src="app-icon.png" width="128" alt="Tempo Pulse">
 
-## 功能
+# Tempo Pulse · 脉动时间节奏
 
-- **自定义时间表**：多套模板（工作日 / 周末…）按星期几自动生效，一天由若干时间块组成
-- **法定工作日**：内置 2026 年国务院官方放假/调休安排，法定节假日自动按周末节奏、调休补班日自动按工作日节奏循环（可在设置中关闭或编辑数据）
-- **自定义状态**：认真工作 💪 / 摸鱼 🐟 / 休息 ☕，随意增删改，每种状态有自己的颜色与表情
-- **迷你悬浮窗**：无边框置顶小窗，常驻显示当前状态与倒计时，可拖动、记住位置（⌘⇧B 切换）
-- **强制休息**：进入「休息」块时自动弹出休息屏，休息结束自动放行；方式可选**全屏接管**或**置顶小窗**（小窗可拖动）
-- **休息屏自定义**：纯色 / 渐变 / 本地图片背景，自定义标题与文案，三档强度（可跳过 / 可延时一次 / 锁死）
-- **托盘常驻**：关掉窗口节奏照跑，托盘图标颜色实时反映当前状态，切换时系统通知
+**你的 8 小时，由你自己定义节奏的桌面伴侣。**
 
-> 萌宠互动规划在第二期 🐣
+把工作日切成一段段时间块：什么时间认真工作、什么时间摸鱼、什么时间强制休息——全部说了算。
 
-## 架构
+[![Release](https://img.shields.io/badge/release-v1.1.0-38bdf8)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-34d399)](LICENSE)
+[![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB)](https://tauri.app)
+[![Vue 3](https://img.shields.io/badge/Vue-3-42b883)](https://vuejs.org)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)
+
+</div>
+
+## ✨ 亮点
+
+- 🗓️ **自定义时间表** — 多套模板按星期几自动生效；可视化 24 小时时间条；时间块支持拖动排序、下拉点选时间
+- 🎭 **自定义状态** — 认真工作 💪 / 摸鱼 🐟 / 休息 ☕，颜色表情随意改；状态决定提醒方式与是否触发休息
+- ⏯️ **开始 / 停止总开关** — 停止后完全安静（不计时、不提醒、不弹屏）；三处入口随时切换，状态持久化
+- 🪟 **迷你悬浮窗** — 无边框置顶小窗常驻倒计时，可拖动、记住位置、跨桌面跟随（可配置）
+- ☕ **强制休息屏** — 进入休息块自动接管：全屏或置顶小窗两种方式；背景（纯色/渐变/本地图片）与文案全自定义；三档强度（可跳过 / 可延时一次 / 锁死）
+- 🎉 **法定工作日** — 内置 [holiday-cn](https://github.com/NateScarlet/holiday-cn) 权威数据并**自动更新**：法定节假日自动按周末节奏、调休补班日自动按工作日节奏，次年安排公布后无需升级应用
+- 🧭 **三步引导** — 首次启动不迷茫：认识状态 → 选一个节奏预设（劳逸结合 55+5 / 深度工作 90+15）→ 立即开始
+- 🫥 **托盘常驻** — 关掉窗口节奏照跑；托盘图标实时反映当前状态色；切换状态系统通知
+- ⌨️ **全局快捷键** — ⌘⇧M 呼出主窗、⌘⇧B 切换迷你窗
+
+## 🧭 工作方式
+
+计时引擎跑在 **Rust 核心进程**（托盘常驻），主窗 / 迷你窗 / 休息屏三个窗口只是视图：
 
 ```
-Rust 核心（托盘常驻，唯一数据源）
-├── engine   节奏引擎：每秒计算快照，块切换时发事件/通知/弹休息屏（纯函数可单测）
-├── model    领域模型 + JSON 持久化（~/Library/Application Support/com.evanft.tempo-pulse/）
-├── windows  迷你窗 / 休息屏生命周期管理
-├── tray     托盘（状态色点图标）
-└── commands 前端命令：读快照、写配置（写后落盘并广播）
+Rust 核心（唯一数据源）
+├── engine   每秒计算快照；块切换 → 通知 / 休息屏（纯函数，单测覆盖）
+├── holidays 法定节假日：内置 holiday-cn 离线数据 + 缓存 + 自动更新
+├── windows  迷你窗 / 休息屏生命周期（置顶、全屏、拖动、位置记忆）
+├── tray     托盘图标 = 当前状态颜色
+└── commands 读快照 / 写配置（落盘后广播，多窗口天然一致）
 
-Vue 3 前端（三个窗口 = 三个视图，只订阅不持有状态）
-├── index.html  主窗口：当前节奏 + 时间表编辑 + 状态管理 + 设置
-├── mini.html   迷你悬浮窗
-└── rest.html   全屏休息屏
+Vue 3 视图层（Pinia + Tailwind）只订阅事件，不持有状态
+pulse://tick · pulse://transition · pulse://config-changed
 ```
 
-核心决策：**计时引擎跑在 Rust 进程，窗口只是视图**。前端通过 `pulse://tick`（每秒）、
-`pulse://transition`（块切换）、`pulse://config-changed`（配置广播）订阅引擎，
-任何写操作经 Rust 落盘后广播，三窗口天然一致。
+## 📦 安装
 
-## 技术栈
+从 [Releases](https://github.com/AleXDTu/tempo-pulse/releases) 下载对应平台的安装包：
 
-Tauri 2 · Vue 3 · TypeScript · Pinia · Tailwind CSS v4 · motion-v
+- macOS：`Tempo Pulse_x.x.x_aarch64.dmg`（Apple Silicon；打开后建议拖入「应用程序」）
+- Windows：见 Release 附件
 
-## 开发
+## 🛠️ 本地开发
 
 ```bash
+# 依赖：Node 20+ / pnpm / Rust（macOS 需要 Xcode CLT，Windows 需要 WebView2 + MSVC）
 pnpm install
-pnpm tauri dev      # 启动应用（首次会编译 Rust，较慢）
-cargo test          # 引擎单元测试（在 src-tauri 下执行）
+
+pnpm tauri dev      # 启动开发版
+cargo test          # 引擎与数据层单元测试（src-tauri 下）
+pnpm tauri build    # 产出安装包
 ```
 
-注意：如果当前时刻正好处在某个「休息」块里，启动时会直接弹全屏休息屏——这是设计行为。
+> 提示：若当前时刻正处在某个「休息」时间块内，启动应用会直接弹出休息屏——这是设计行为；不想被打扰可先在主窗点「⏸ 停止」。
 
-## 构建
+## 🔒 数据与隐私
 
-```bash
-pnpm tauri build    # 产出 dmg / app（macOS）
-```
+- **节奏数据完全本地存储**：`~/Library/Application Support/com.evanft.tempo-pulse/`（Windows 为 `%APPDATA%`），可随设置页一键直达
+- **唯一的可选联网**：法定节假日数据自动更新（来源 holiday-cn，默认开启，可在设置中关闭；关闭后使用内置离线数据）
+- 内置离线数据与官方《国务院办公厅关于部分节假日安排的通知》逐日一致
 
-Windows 构建请在 Windows 机器或 CI 上执行 `pnpm tauri build`。
-
-## 快捷键
+## ⌨️ 快捷键
 
 | 快捷键 | 作用 |
 |---|---|
@@ -64,11 +78,20 @@ Windows 构建请在 Windows 机器或 CI 上执行 `pnpm tauri build`。
 | ⌘⇧B（Win: Ctrl⇧B） | 显示 / 隐藏迷你悬浮窗 |
 | Esc | 休息屏「可跳过」模式下关屏（休息继续，不算跳过） |
 
-## 数据
+## 🗺️ Roadmap
 
-全部本地存储，无任何联网：
+- [x] v1.0 — 时间表 / 状态 / 迷你窗 / 休息屏 / 法定工作日 / 引导
+- [x] v1.1 — 节假日数据自动更新
+- [ ] 专注时长统计（区分认真与摸鱼）
+- [ ] 萌宠互动（第二期，休息屏内容插件化）
+- [ ] Windows 构建产物进 CI
 
-- `config.json` — 状态、时间表、设置（含 `legalDays` 法定节假日/调休数据，默认内置 2026 年官方安排，次年安排公布后可手动更新此文件）
-- `rest-bg.*` — 休息屏自定义背景图
+## 🤝 贡献
 
-配置目录可从「设置 → 法定工作日 → 打开数据文件」直达。
+Issue / PR 均欢迎。提交前请跑 `cargo test` 与 `pnpm build`。
+
+## 📄 License
+
+[MIT](LICENSE) © 2026 AleXDTu
+
+<!-- TODO: 补充截图（主窗 / 迷你窗 / 休息屏），放入 docs/screenshots/ 并在此展示 -->
