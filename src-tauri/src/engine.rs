@@ -363,13 +363,19 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         if notifications {
             if let Some(state) = &snap.state {
                 let until = snap.next_at.clone().unwrap_or_default();
+                let note = snap
+                    .block_note
+                    .as_deref()
+                    .filter(|n| !n.trim().is_empty())
+                    .map(|n| format!(" · 📝 {n}"))
+                    .unwrap_or_default();
                 let _ = app
                     .notification()
                     .builder()
                     .title("节奏切换")
                     .body(format!(
-                        "进入「{}」，直到 {}",
-                        state.label, until
+                        "进入「{}」，直到 {}{}",
+                        state.label, until, note
                     ))
                     .show();
             }

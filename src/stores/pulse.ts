@@ -38,13 +38,21 @@ export const usePulseStore = defineStore("pulse", () => {
 
   const running = computed(() => snapshot.value?.running ?? false);
   const state = computed(() => snapshot.value?.state ?? null);
-  const color = computed(() => state.value?.color ?? "#64748b");
+  /** 空闲/停止时用 gruvbox 中性灰 */
+  const color = computed(() => state.value?.color ?? "#928374");
   const countdownText = computed(() =>
     snapshot.value ? formatCountdown(snapshot.value.remainingSecs) : "--:--",
   );
   const isIdle = computed(() => snapshot.value?.isIdle ?? true);
   const label = computed(() => state.value?.label ?? "自由时间");
   const emoji = computed(() => state.value?.emoji ?? "🌙");
+  /** 当前块备注（时间表里配置的，非空才显示） */
+  const blockNote = computed(() => {
+    const n = snapshot.value?.blockNote?.trim();
+    return n ? n : null;
+  });
+  /** 引擎本地时钟 "HH:MM:SS"，跟随系统时区 */
+  const engineNow = computed(() => snapshot.value?.now ?? null);
 
   return {
     snapshot,
@@ -59,5 +67,7 @@ export const usePulseStore = defineStore("pulse", () => {
     isIdle,
     label,
     emoji,
+    blockNote,
+    engineNow,
   };
 });

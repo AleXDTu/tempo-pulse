@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { AppConfig, PulseState, Schedule, Settings } from "../lib/types";
 import { onConfigChanged } from "../lib/events";
+import { applyTheme } from "../lib/theme";
 
 /**
  * 配置 store。主窗编辑后调用 save*，由 Rust 持久化并广播
@@ -16,8 +17,10 @@ export const useConfigStore = defineStore("config", () => {
     if (inited.value) return;
     inited.value = true;
     config.value = await invoke<AppConfig>("get_config");
+    applyTheme(config.value.settings.theme);
     await onConfigChanged((c) => {
       config.value = c;
+      applyTheme(c.settings.theme);
     });
   }
 

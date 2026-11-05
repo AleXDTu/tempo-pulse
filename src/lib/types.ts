@@ -63,6 +63,8 @@ export interface LegalDaysSettings {
   lastUpdated: string | null;
 }
 
+export type ThemeName = "dark" | "light";
+
 export interface Settings {
   mini: MiniSettings;
   restScreen: RestScreenSettings;
@@ -71,6 +73,8 @@ export interface Settings {
   running: boolean;
   /** 是否完成过新手引导 */
   onboarded: boolean;
+  /** 界面主题：gruvbox 双主题 */
+  theme: ThemeName;
   autostart: boolean;
   notifications: boolean;
 }

@@ -2,18 +2,21 @@
 import { computed, ref, watch } from "vue";
 import { useConfigStore } from "../../stores/config";
 import type { PulseState, StateKind } from "../../lib/types";
+import { KIND_LABELS, STATE_PRESETS, presetToState } from "../../lib/statePresets";
 
 const config = useConfigStore();
 
 const KINDS: { value: StateKind; label: string; hint: string }[] = [
   { value: "focus", label: "认真", hint: "进入时提醒，正常节奏" },
   { value: "slack", label: "摸鱼", hint: "轻松段，不强制休息" },
-  { value: "rest", label: "休息", hint: "进入时弹出全屏休息屏" },
+  { value: "rest", label: "休息", hint: "进入时弹出休息屏（全屏/小窗）" },
   { value: "custom", label: "自定义", hint: "只有提醒，没有特殊行为" },
 ];
 
 const working = ref<PulseState[]>([]);
 const saveError = ref("");
+/** 模板画廊展开态 */
+const galleryOpen = ref(false);
 
 const dirty = computed(
   () =>
@@ -45,9 +48,22 @@ function addState() {
     id: crypto.randomUUID(),
     label: "新状态",
     emoji: "✨",
-    color: "#a78bfa",
+    color: "#d3869b",
     kind: "custom",
   });
+}
+
+/** 从模板库添加：插入可编辑行（颜色/名字可再改），已存在同名则跳过 */
+function addFromPreset(presetIdx: number) {
+  const preset = STATE_PRESETS[presetIdx];
+  if (!preset) return;
+  if (working.value.some((s) => s.label === preset.label)) return;
+  working.value.push(presetToState(preset));
+}
+
+function hasPreset(presetIdx: number): boolean {
+  const preset = STATE_PRESETS[presetIdx];
+  return working.value.some((s) => s.label === preset.label);
 }
 
 function removeState(id: string) {
@@ -70,7 +86,7 @@ async function save() {
     labels.add(key);
   }
   if (!working.value.some((s) => s.kind === "rest")) {
-    saveError.value = "至少保留一个「休息」类型的状态（全屏休息屏依赖它）";
+    saveError.value = "至少保留一个「休息」类型的状态（休息屏依赖它）";
     return;
   }
   try {
@@ -83,16 +99,71 @@ async function save() {
 
 <template>
   <div class="mx-auto max-w-4xl space-y-4 pb-4">
-    <section class="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <!-- 模板画廊 -->
+    <section class="rounded-2xl border border-line bg-surface p-5">
+      <button
+        class="flex w-full items-center justify-between"
+        @click="galleryOpen = !galleryOpen"
+      >
+        <div class="text-left">
+          <h3 class="text-sm font-medium text-secondary">
+            状态模板库
+            <span class="ml-1 text-xs font-normal text-tertiary">
+              {{ STATE_PRESETS.length }} 个预设 · 点击即添加，名字颜色都可再改
+            </span>
+          </h3>
+        </div>
+        <span class="text-xs text-tertiary transition" :class="galleryOpen ? 'rotate-180' : ''">
+          ▾
+        </span>
+      </button>
+
+      <div v-if="galleryOpen" class="mt-4 space-y-3">
+        <div v-for="k in Object.keys(KIND_LABELS) as StateKind[]" :key="k">
+          <div class="mb-1.5 text-xs text-tertiary">
+            {{ KIND_LABELS[k] }}
+            <span class="opacity-70">
+              · {{ KINDS.find((x) => x.value === k)?.hint }}
+            </span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="(p, i) in STATE_PRESETS"
+              :key="p.label"
+              v-show="p.kind === k"
+              class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-default disabled:opacity-35"
+              :class="
+                hasPreset(i)
+                  ? 'border-line bg-base-deep/40 text-tertiary'
+                  : 'border-line bg-base-deep/40 text-primary hover:border-accent/50 hover:text-accent'
+              "
+              :disabled="hasPreset(i)"
+              :title="hasPreset(i) ? '已存在' : '添加到我的状态'"
+              @click="addFromPreset(i)"
+            >
+              <span
+                class="h-2.5 w-2.5 rounded-full"
+                :style="{ backgroundColor: p.color }"
+              />
+              {{ p.emoji }} {{ p.label }}
+              <span v-if="hasPreset(i)" class="opacity-60">✓</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 我的状态 -->
+    <section class="rounded-2xl border border-line bg-surface p-5">
       <div class="mb-4 flex items-center justify-between">
         <div>
-          <h3 class="text-sm font-medium text-slate-300">我的状态</h3>
-          <p class="mt-0.5 text-xs text-slate-500">
-            时间块绑定状态；「休息」类型的状态会触发全屏休息屏
+          <h3 class="text-sm font-medium text-secondary">我的状态</h3>
+          <p class="mt-0.5 text-xs text-tertiary">
+            时间块绑定状态；「休息」类型的状态会触发休息屏
           </p>
         </div>
         <button
-          class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
+          class="rounded-lg border border-line bg-base-deep/40 px-3 py-1.5 text-xs text-secondary transition hover:bg-raised hover:text-primary"
           @click="addState"
         >
           + 添加状态
@@ -103,7 +174,7 @@ async function save() {
         <div
           v-for="s in working"
           :key="s.id"
-          class="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3"
+          class="flex items-center gap-3 rounded-xl border border-line bg-base-deep/30 p-3"
           :style="{ boxShadow: `inset 3px 0 0 ${s.color}` }"
         >
           <div
@@ -121,19 +192,19 @@ async function save() {
             <div class="flex items-center gap-2">
               <input
                 v-model="s.label"
-                class="h-7 w-28 rounded-lg border border-white/10 bg-white/5 px-2 py-0 text-sm outline-none focus:border-sky-400/50"
+                class="h-7 w-28 rounded-lg border border-line bg-base-deep/50 px-2 py-0 text-sm text-primary outline-none placeholder:text-tertiary/70 focus:border-accent"
                 placeholder="名称"
               />
               <select
                 v-model="s.kind"
-                class="h-7 rounded-lg border border-white/10 bg-slate-800 px-2 py-0 text-xs outline-none"
+                class="h-7 rounded-lg border border-line bg-surface px-2 py-0 text-xs text-primary outline-none"
                 :title="KINDS.find((k) => k.value === s.kind)?.hint"
               >
                 <option v-for="k in KINDS" :key="k.value" :value="k.value">
                   {{ k.label }}
                 </option>
               </select>
-              <label class="flex items-center gap-1 text-xs text-slate-500">
+              <label class="flex items-center gap-1 text-xs text-tertiary">
                 <input
                   v-model="s.color"
                   type="color"
@@ -142,16 +213,14 @@ async function save() {
                 颜色
               </label>
             </div>
-            <p class="truncate text-xs text-slate-500">
+            <p class="truncate text-xs text-tertiary">
               {{ KINDS.find((k) => k.value === s.kind)?.hint }}
             </p>
           </div>
           <button
-            class="rounded-lg px-2 py-1 text-slate-500 transition hover:bg-red-400/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            class="rounded-lg px-2 py-1 text-tertiary transition hover:bg-danger/15 hover:text-danger disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
             :disabled="referencedIds.has(s.id)"
-            :title="
-              referencedIds.has(s.id) ? '已被时间块引用，不可删除' : '删除此状态'
-            "
+            :title="referencedIds.has(s.id) ? '已被时间块引用，不可删除' : '删除此状态'"
             @click="removeState(s.id)"
           >
             ✕
@@ -161,12 +230,10 @@ async function save() {
     </section>
 
     <div class="flex items-center justify-end gap-3">
-      <span v-if="saveError" class="text-xs text-red-400">{{ saveError }}</span>
-      <span v-else-if="dirty" class="text-xs text-amber-300/80">
-        有未保存的更改
-      </span>
+      <span v-if="saveError" class="text-xs text-danger">{{ saveError }}</span>
+      <span v-else-if="dirty" class="text-xs text-warning/90">有未保存的更改</span>
       <button
-        class="rounded-xl bg-sky-500 px-5 py-2 text-sm font-medium text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400 disabled:opacity-40"
+        class="rounded-xl bg-accent px-5 py-2 text-sm font-medium text-on-accent transition hover:opacity-90 disabled:opacity-40"
         :disabled="!dirty"
         @click="save"
       >

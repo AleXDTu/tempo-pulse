@@ -50,6 +50,10 @@ fn default_true() -> bool {
     true
 }
 
+fn default_theme() -> String {
+    "dark".into()
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MiniSettings {
@@ -166,6 +170,9 @@ pub struct Settings {
     /// 是否完成过新手引导（老配置默认 true，避免升级后弹引导）
     #[serde(default = "default_true")]
     pub onboarded: bool,
+    /// 界面主题："dark" | "light"（gruvbox）
+    #[serde(default = "default_theme")]
+    pub theme: String,
     pub autostart: bool,
     pub notifications: bool,
 }
@@ -184,21 +191,21 @@ impl Default for AppConfig {
             id: uuid::Uuid::new_v4().to_string(),
             label: "认真工作".into(),
             emoji: Some("💪".into()),
-            color: "#f97316".into(),
+            color: "#d65d0e".into(), // gruvbox orange
             kind: StateKind::Focus,
         };
         let slack = PulseState {
             id: uuid::Uuid::new_v4().to_string(),
             label: "摸鱼".into(),
             emoji: Some("🐟".into()),
-            color: "#38bdf8".into(),
+            color: "#83a598".into(), // gruvbox blue
             kind: StateKind::Slack,
         };
         let rest = PulseState {
             id: uuid::Uuid::new_v4().to_string(),
             label: "休息".into(),
             emoji: Some("☕".into()),
-            color: "#34d399".into(),
+            color: "#689d6a".into(), // gruvbox aqua
             kind: StateKind::Rest,
         };
 
@@ -220,6 +227,7 @@ impl Default for AppConfig {
                 // 新装默认停止 + 未引导：由新手引导完成后开始
                 running: false,
                 onboarded: false,
+                theme: default_theme(),
                 autostart: false,
                 notifications: true,
             },
@@ -282,6 +290,25 @@ mod tests {
         assert!(cfg.settings.legal_days.holidays.is_empty());
         assert!(cfg.settings.legal_days.workdays.is_empty());
         assert!(cfg.settings.legal_days.auto_update);
+        assert_eq!(cfg.settings.theme, "dark");
+    }
+
+    #[test]
+    fn legacy_config_defaults_theme_to_dark() {
+        // 缺 theme 字段的旧配置反序列化时默认 dark
+        let json = serde_json::json!({
+            "states": [],
+            "schedules": [],
+            "settings": {
+                "mini": {"x": null, "y": null, "visible": true},
+                "restScreen": {"bgType": "color", "bgValue": "#000000", "title": "t", "subtitle": "s", "strictness": "skippable"},
+                "running": true,
+                "autostart": false,
+                "notifications": true
+            }
+        });
+        let cfg: AppConfig = serde_json::from_value(json).unwrap();
+        assert_eq!(cfg.settings.theme, "dark");
     }
 
     #[test]

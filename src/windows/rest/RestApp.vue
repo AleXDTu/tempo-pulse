@@ -135,6 +135,13 @@ async function onKeydown(e: KeyboardEvent) {
           class="text-center"
         >
           <div
+            v-if="pulse.blockNote"
+            class="mx-auto mb-4 inline-block rounded-full border border-white/25 bg-black/25 px-4 py-1 text-sm text-white/85"
+            title="当前时间块的备注"
+          >
+            当前安排：📝 {{ pulse.blockNote }}
+          </div>
+          <div
             class="tnum font-extralight text-white/95"
             :class="windowMode ? 'text-6xl' : 'text-8xl'"
           >

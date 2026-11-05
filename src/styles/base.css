@@ -1,8 +1,70 @@
 @import "tailwindcss";
 
-/* 全局暗色基底，三个窗口共用 */
-:root {
+/* ============================================================
+   Gruvbox 双主题 design tokens
+   语义类（Tailwind @theme inline 生成）：
+   bg-base / bg-base-deep / bg-surface / bg-raised / border-line
+   text-primary / text-secondary / text-tertiary
+   text-accent / bg-accent / border-accent …（accent/success/warning/danger 同理）
+   ============================================================ */
+
+:root,
+:root[data-theme="dark"] {
+  --tp-bg0: #282828;
+  --tp-bg0h: #1d2021;
+  --tp-bg1: #3c3836;
+  --tp-bg2: #504945;
+  --tp-border: #3c3836;
+  --tp-fg: #fbf1c7;
+  --tp-fg-dim: #bdae93;
+  --tp-fg-faint: #a89984;
+  --tp-blue: #83a598;
+  --tp-aqua: #8ec07c;
+  --tp-red: #fb4934;
+  --tp-yellow: #fabd2f;
+  --tp-orange: #fe8019;
+  --tp-purple: #d3869b;
+  --tp-on-accent: #1d2021;
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --tp-bg0: #fbf1c7;
+  --tp-bg0h: #f2e5bc;
+  --tp-bg1: #ebdbb2;
+  --tp-bg2: #d5c4a1;
+  --tp-border: #d5c4a1;
+  --tp-fg: #3c3836;
+  --tp-fg-dim: #665c54;
+  --tp-fg-faint: #7c6f64;
+  --tp-blue: #458588;
+  --tp-aqua: #689d6a;
+  --tp-red: #cc241d;
+  --tp-yellow: #d79921;
+  --tp-orange: #d65d0e;
+  --tp-purple: #8f3f71;
+  --tp-on-accent: #fbf1c7;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-base: var(--tp-bg0);
+  --color-base-deep: var(--tp-bg0h);
+  --color-surface: var(--tp-bg1);
+  --color-raised: var(--tp-bg2);
+  --color-line: var(--tp-border);
+  --color-primary: var(--tp-fg);
+  --color-secondary: var(--tp-fg-dim);
+  --color-tertiary: var(--tp-fg-faint);
+  --color-accent: var(--tp-blue);
+  --color-on-accent: var(--tp-on-accent);
+  --color-success: var(--tp-aqua);
+  --color-warning: var(--tp-yellow);
+  --color-danger: var(--tp-red);
+}
+
+/* 全局暗/亮基底，三个窗口共用 */
+:root {
   font-family: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
     system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -18,9 +80,15 @@ body,
 
 body {
   background: transparent;
-  color: #e7ecf3;
+  color: var(--tp-fg);
   overflow: hidden;
   user-select: none;
+}
+
+/* 主题切换过渡 */
+body.theme-anim * {
+  transition: background-color 0.25s ease, border-color 0.25s ease,
+    color 0.25s ease;
 }
 
 /* 数字滚动等宽显示 */
@@ -29,19 +97,23 @@ body {
   font-feature-settings: "tnum";
 }
 
-/* 暗色下的原生控件微调 */
-input[type="time"],
-input[type="text"],
-select {
-  color-scheme: dark;
+/* 时钟冒号呼吸 */
+@keyframes colon-blink {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0.25; }
 }
+.colon-blink {
+  animation: colon-blink 2s steps(1) infinite;
+}
+
+/* 原生控件跟随主题（color-scheme 由 data-theme 决定） */
 
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--tp-bg2);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-track {

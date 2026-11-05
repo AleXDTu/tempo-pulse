@@ -106,15 +106,15 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onDocClick));
     <div class="relative">
       <input
         v-model="text"
-        class="tnum h-8 w-[92px] rounded-lg border bg-white/5 px-2 pr-6 text-sm outline-none transition focus:border-sky-400/50"
-        :class="parsed ? 'border-white/10' : 'border-red-400/40'"
+        class="tnum h-8 w-[92px] rounded-lg border border-line bg-raised/40 px-2 pr-6 text-sm outline-none transition focus:border-accent"
+        :class="parsed ? 'border-line' : 'border-danger/60'"
         placeholder="HH:MM"
         @input="onInput"
         @blur="onBlur"
         @keydown.enter="($event.target as HTMLInputElement).blur()"
       />
       <button
-        class="absolute right-0.5 top-1/2 -translate-y-1/2 px-1 text-[10px] text-slate-500 transition hover:text-slate-300"
+        class="absolute right-0.5 top-1/2 -translate-y-1/2 px-1 text-[10px] text-tertiary transition hover:text-primary"
         tabindex="-1"
         title="下拉选择"
         @mousedown.prevent
@@ -126,35 +126,35 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onDocClick));
 
     <div
       v-if="open"
-      class="absolute z-30 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-slate-900/95 p-1.5 shadow-2xl"
+      class="absolute z-30 grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1.5 shadow-2xl"
       :class="up ? 'bottom-full mb-1' : 'top-full mt-1'"
     >
-      <div ref="hourCol" class="h-56 overflow-y-auto rounded-lg bg-white/[0.03] p-1">
-        <div class="px-2 py-0.5 text-[10px] text-slate-500">时</div>
+      <div ref="hourCol" class="h-56 overflow-y-auto rounded-lg bg-raised/30 p-1">
+        <div class="px-2 py-0.5 text-[10px] text-tertiary">时</div>
         <button
           v-for="h in HOURS"
           :key="h"
           class="tnum flex h-[30px] w-full items-center justify-center rounded-md text-sm transition"
           :class="
             parsed?.h === h
-              ? 'bg-sky-400/20 text-sky-200'
-              : 'text-slate-300 hover:bg-white/10'
+              ? 'bg-accent/25 text-accent'
+              : 'text-secondary hover:bg-raised'
           "
           @click="setH(h)"
         >
           {{ pad(h) }}
         </button>
       </div>
-      <div ref="minuteCol" class="h-56 overflow-y-auto rounded-lg bg-white/[0.03] p-1">
-        <div class="px-2 py-0.5 text-[10px] text-slate-500">分</div>
+      <div ref="minuteCol" class="h-56 overflow-y-auto rounded-lg bg-raised/30 p-1">
+        <div class="px-2 py-0.5 text-[10px] text-tertiary">分</div>
         <button
           v-for="m in MINUTES"
           :key="m"
           class="tnum flex h-[30px] w-full items-center justify-center rounded-md text-sm transition"
           :class="
             minuteSel === m
-              ? 'bg-sky-400/20 text-sky-200'
-              : 'text-slate-300 hover:bg-white/10'
+              ? 'bg-accent/25 text-accent'
+              : 'text-secondary hover:bg-raised'
           "
           @click="setM(m)"
         >
