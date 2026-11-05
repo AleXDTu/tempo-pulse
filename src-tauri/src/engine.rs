@@ -47,6 +47,8 @@ pub struct EngineState {
     pub postponed_until: Option<DateTime<Local>>,
     /// 用户手动关掉休息屏且未跳过的块（该块内不再弹出）
     pub rest_dismissed_block: Option<String>,
+    /// 已发送过结束预告的块 id（专注/摸鱼类，每块只发一次）
+    pub pre_end_sent: Option<String>,
 }
 
 impl EngineState {
@@ -56,6 +58,7 @@ impl EngineState {
         self.last_state = None;
         self.postponed_until = None;
         self.rest_dismissed_block = None;
+        self.pre_end_sent = None;
         self.skipped = None;
     }
 }
@@ -303,6 +306,7 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     );
     let notifications = config.settings.notifications;
     let running = config.settings.running;
+    let end_reminders = config.settings.end_reminders;
     drop(config);
     drop(store);
 
@@ -313,6 +317,7 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         engine.last_state = None;
         engine.postponed_until = None;
         engine.rest_dismissed_block = None;
+        engine.pre_end_sent = None;
         engine.skipped = None;
         drop(engine);
         if need_cleanup {
@@ -329,6 +334,40 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .map(|s| s.kind == StateKind::Rest)
         .unwrap_or(false);
+
+    // 状态反应 · 结束预告：专注类提前 5 分钟、摸鱼类提前 2 分钟各提醒一次。
+    // 同一块只发一次（记 block_id），空闲/跳过/短块不触发。
+    if notifications && end_reminders && !snap.is_idle {
+        if let (Some(state), Some(block_id)) = (&snap.state, &snap.block_id) {
+            let threshold: i64 = match state.kind {
+                StateKind::Focus => 300,
+                StateKind::Slack => 120,
+                _ => 0,
+            };
+            let already = engine.pre_end_sent.as_deref() == Some(block_id.as_str());
+            if threshold > 0 && !already && (1..=threshold).contains(&snap.remaining_secs) {
+                engine.pre_end_sent = Some(block_id.clone());
+                let mins = (snap.remaining_secs / 60).max(1);
+                let body = match state.kind {
+                    StateKind::Focus => {
+                        format!("「{}」还剩约 {} 分钟，准备收尾 ✍️", state.label, mins)
+                    }
+                    StateKind::Slack => {
+                        format!("摸鱼时间快结束啦，「{}」还剩约 {} 分钟 🐟", state.label, mins)
+                    }
+                    _ => String::new(),
+                };
+                if !body.is_empty() {
+                    let _ = app
+                        .notification()
+                        .builder()
+                        .title("块结束预告")
+                        .body(body)
+                        .show();
+                }
+            }
+        }
+    }
 
     // 「再躺一会儿」到点：仍在休息块内则重新弹屏
     if in_rest {

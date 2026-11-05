@@ -154,6 +154,45 @@ pub fn toggle_mini(app: &AppHandle) {
     set_mini_visible(app, !visible);
 }
 
+/// 老板键（摸鱼掩护 ⌘⇧H）：有窗口可见 → 一键隐藏主窗+迷你窗；全隐藏 → 恢复。
+/// 休息屏不受影响（休息是主动安排，不该被掩护掉）。
+pub fn boss_key(app: &AppHandle) {
+    let main_visible = app
+        .get_webview_window(MAIN)
+        .map(|w| w.is_visible().unwrap_or(false))
+        .unwrap_or(false);
+    let mini_visible = app
+        .get_webview_window(MINI)
+        .map(|w| w.is_visible().unwrap_or(false))
+        .unwrap_or(false);
+
+    if main_visible || mini_visible {
+        if let Some(w) = app.get_webview_window(MAIN) {
+            let _ = w.hide();
+        }
+        if let Some(w) = app.get_webview_window(MINI) {
+            let _ = w.hide();
+        }
+    } else {
+        if let Some(w) = app.get_webview_window(MAIN) {
+            let _ = w.show();
+            let _ = w.unminimize();
+            let _ = w.set_focus();
+        }
+        // 迷你窗恢复遵循配置里的可见性
+        let mini_should_show = {
+            let st = app.state::<AppState>();
+            let cfg = st.config.read().unwrap();
+            cfg.settings.mini.visible
+        };
+        if mini_should_show {
+            if let Some(w) = app.get_webview_window(MINI) {
+                let _ = w.show();
+            }
+        }
+    }
+}
+
 pub fn show_main(app: &AppHandle) {
     if let Some(win) = app.get_webview_window(MAIN) {
         let _ = win.show();

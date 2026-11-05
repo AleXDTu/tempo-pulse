@@ -236,7 +236,7 @@ async function save() {
       <div>
         <h3 class="text-sm font-medium text-secondary">休息屏</h3>
         <p class="mt-0.5 text-xs text-tertiary">
-          进入「休息」状态时按下面的样子展示；时间块备注会显示在倒计时上方
+          进入「休息」状态时按下面的样子展示；标题下方显示当前块的备注
         </p>
       </div>
 
@@ -251,9 +251,7 @@ async function save() {
               {{ rest?.title || "该休息啦" }}
             </div>
             <div class="mt-2 tnum text-4xl font-bold text-white">14:59</div>
-            <div class="mt-2 text-xs text-white/70">
-              {{ rest?.subtitle || "离开屏幕，站起来走走" }}
-            </div>
+            <div class="mt-2 text-xs text-white/70">📝 时间块备注会显示在这里</div>
           </div>
         </div>
 
@@ -332,14 +330,9 @@ async function save() {
               placeholder="该休息啦 ☕"
             />
           </div>
-          <div class="flex items-center gap-2 text-sm">
-            <span class="w-16 shrink-0 text-secondary">副标题</span>
-            <input
-              v-model="rest!.subtitle"
-              class="flex-1 rounded-lg border border-line bg-base-deep/50 px-3 py-1.5 text-sm text-primary outline-none placeholder:text-tertiary/70 focus:border-accent"
-              placeholder="离开屏幕，站起来走走"
-            />
-          </div>
+          <p class="text-xs text-tertiary">
+            副标题已由时间块的「备注」充当——配置备注即显示在休息屏上
+          </p>
         </div>
       </div>
 
@@ -485,6 +478,16 @@ async function save() {
 
       <label class="flex items-center justify-between rounded-xl bg-base-deep/30 px-4 py-3">
         <div>
+          <div class="text-sm text-primary">块结束预告</div>
+          <div class="text-xs text-tertiary">
+            专注类提前 5 分钟收尾预告 · 摸鱼类提前 2 分钟收敛预告（每块只提醒一次）
+          </div>
+        </div>
+        <input v-model="working.endReminders" type="checkbox" class="h-5 w-5 accent-accent" />
+      </label>
+
+      <label class="flex items-center justify-between rounded-xl bg-base-deep/30 px-4 py-3">
+        <div>
           <div class="text-sm text-primary">开机自启</div>
           <div class="text-xs text-tertiary">登录后自动在托盘里跑起节奏</div>
         </div>
@@ -518,7 +521,9 @@ async function save() {
       <div class="flex items-center justify-between rounded-xl bg-base-deep/30 px-4 py-3">
         <div>
           <div class="text-sm text-primary">全局快捷键</div>
-          <div class="text-xs text-tertiary">主窗口 ⌘⇧M · 迷你窗 ⌘⇧B（Windows 为 Ctrl⇧）</div>
+          <div class="text-xs text-tertiary">
+            主窗 ⌘⇧M · 迷你窗 ⌘⇧B · 摸鱼掩护 ⌘⇧H（Windows 为 Ctrl⇧）
+          </div>
         </div>
       </div>
     </section>

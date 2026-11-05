@@ -76,7 +76,6 @@ pub struct RestScreenSettings {
     /// color: "#RRGGBB" / gradient: CSS gradient / image: 资产绝对路径
     pub bg_value: String,
     pub title: String,
-    pub subtitle: String,
     /// "skippable" | "postpone-once" | "locked"
     pub strictness: String,
 }
@@ -173,6 +172,9 @@ pub struct Settings {
     /// 界面主题："dark" | "light"（gruvbox）
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// 块结束预告提醒：专注类提前 5 分钟、摸鱼类提前 2 分钟各通知一次
+    #[serde(default = "default_true")]
+    pub end_reminders: bool,
     pub autostart: bool,
     pub notifications: bool,
 }
@@ -218,9 +220,8 @@ impl Default for AppConfig {
                 rest_screen: RestScreenSettings {
                     mode: default_rest_mode(),
                     bg_type: "gradient".into(),
-                    bg_value: "linear-gradient(135deg, #0f172a 0%, #312e81 50%, #581c87 100%)".into(),
+                    bg_value: "linear-gradient(135deg, #282828 0%, #458588 60%, #689d6a 100%)".into(),
                     title: "该休息啦 ☕".into(),
-                    subtitle: "离开屏幕，站起来走走，看看远处".into(),
                     strictness: "skippable".into(),
                 },
                 legal_days: default_legal_days(),
@@ -228,6 +229,7 @@ impl Default for AppConfig {
                 running: false,
                 onboarded: false,
                 theme: default_theme(),
+                end_reminders: true,
                 autostart: false,
                 notifications: true,
             },

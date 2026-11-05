@@ -74,11 +74,6 @@ async function toggleRun() {
     <!-- 顶部：当前节奏 -->
     <header
       class="mx-5 mt-5 flex items-center justify-between rounded-2xl border border-line bg-surface px-6 py-5 transition-colors duration-300"
-      :style="{
-        boxShadow: running
-          ? `inset 0 0 28px ${heroColor}14, 0 1px 0 ${heroColor}30 inset`
-          : 'none',
-      }"
     >
       <div class="flex items-center gap-4">
         <div

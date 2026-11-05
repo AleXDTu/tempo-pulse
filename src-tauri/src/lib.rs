@@ -36,6 +36,13 @@ fn register_shortcuts(app: &AppHandle) {
     }) {
         eprintln!("[tempo-pulse] 快捷键 CmdOrCtrl+Shift+B 注册失败: {e}");
     }
+    if let Err(e) = gs.on_shortcut("CmdOrCtrl+Shift+H", |app, _s, e| {
+        if e.state == ShortcutState::Pressed {
+            windows::boss_key(app);
+        }
+    }) {
+        eprintln!("[tempo-pulse] 快捷键 CmdOrCtrl+Shift+H 注册失败: {e}");
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

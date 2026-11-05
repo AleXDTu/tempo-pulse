@@ -47,7 +47,6 @@ export interface RestScreenSettings {
   /** color: "#RRGGBB" / gradient: CSS gradient 字符串 / image: 资产路径 */
   bgValue: string;
   title: string;
-  subtitle: string;
   strictness: RestStrictness;
 }
 
@@ -75,6 +74,8 @@ export interface Settings {
   onboarded: boolean;
   /** 界面主题：gruvbox 双主题 */
   theme: ThemeName;
+  /** 块结束预告：专注提前 5 分钟 / 摸鱼提前 2 分钟 */
+  endReminders: boolean;
   autostart: boolean;
   notifications: boolean;
 }

@@ -143,9 +143,9 @@ function chooseTheme(t: ThemeName) {
       <div v-else-if="step === 2" class="text-center">
         <h2 class="text-2xl font-bold text-primary">先认识一下「状态」</h2>
         <p class="mt-3 text-sm text-secondary">
-          时间块绑定状态，状态决定颜色、提醒和是否触发休息屏。
-          已为你准备了三个常用的，之后可在「状态」页从
-          <span class="text-primary">16 个模板</span> 里随意添加。
+          时间块绑定状态，状态决定颜色和它的「反应」——
+          休息会弹屏、专注会收尾预告、摸鱼能一键掩护。
+          已为你准备了三个常用的，之后可在「状态」页随意添加。
         </p>
         <div class="mt-6 flex flex-wrap justify-center gap-3">
           <div

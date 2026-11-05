@@ -2,21 +2,18 @@
 import { computed, ref, watch } from "vue";
 import { useConfigStore } from "../../stores/config";
 import type { PulseState, StateKind } from "../../lib/types";
-import { KIND_LABELS, STATE_PRESETS, presetToState } from "../../lib/statePresets";
 
 const config = useConfigStore();
 
-const KINDS: { value: StateKind; label: string; hint: string }[] = [
-  { value: "focus", label: "认真", hint: "进入时提醒，正常节奏" },
-  { value: "slack", label: "摸鱼", hint: "轻松段，不强制休息" },
-  { value: "rest", label: "休息", hint: "进入时弹出休息屏（全屏/小窗）" },
-  { value: "custom", label: "自定义", hint: "只有提醒，没有特殊行为" },
+const KINDS: { value: StateKind; label: string; hint: string; reaction: string }[] = [
+  { value: "focus", label: "认真", hint: "进入时提醒", reaction: "结束前 5 分钟收尾预告" },
+  { value: "slack", label: "摸鱼", hint: "轻松段", reaction: "结束前 2 分钟收敛预告 · ⌘⇧H 一键掩护" },
+  { value: "rest", label: "休息", hint: "主动安排的休息", reaction: "弹出休息屏（全屏/小窗）" },
+  { value: "custom", label: "自定义", hint: "只有切换通知", reaction: "仅切换通知" },
 ];
 
 const working = ref<PulseState[]>([]);
 const saveError = ref("");
-/** 模板画廊展开态 */
-const galleryOpen = ref(false);
 
 const dirty = computed(
   () =>
@@ -53,19 +50,6 @@ function addState() {
   });
 }
 
-/** 从模板库添加：插入可编辑行（颜色/名字可再改），已存在同名则跳过 */
-function addFromPreset(presetIdx: number) {
-  const preset = STATE_PRESETS[presetIdx];
-  if (!preset) return;
-  if (working.value.some((s) => s.label === preset.label)) return;
-  working.value.push(presetToState(preset));
-}
-
-function hasPreset(presetIdx: number): boolean {
-  const preset = STATE_PRESETS[presetIdx];
-  return working.value.some((s) => s.label === preset.label);
-}
-
 function removeState(id: string) {
   working.value = working.value.filter((s) => s.id !== id);
 }
@@ -99,56 +83,23 @@ async function save() {
 
 <template>
   <div class="mx-auto max-w-4xl space-y-4 pb-4">
-    <!-- 模板画廊 -->
+    <!-- 状态类型说明 -->
     <section class="rounded-2xl border border-line bg-surface p-5">
-      <button
-        class="flex w-full items-center justify-between"
-        @click="galleryOpen = !galleryOpen"
-      >
-        <div class="text-left">
-          <h3 class="text-sm font-medium text-secondary">
-            状态模板库
-            <span class="ml-1 text-xs font-normal text-tertiary">
-              {{ STATE_PRESETS.length }} 个预设 · 点击即添加，名字颜色都可再改
-            </span>
-          </h3>
-        </div>
-        <span class="text-xs text-tertiary transition" :class="galleryOpen ? 'rotate-180' : ''">
-          ▾
-        </span>
-      </button>
-
-      <div v-if="galleryOpen" class="mt-4 space-y-3">
-        <div v-for="k in Object.keys(KIND_LABELS) as StateKind[]" :key="k">
-          <div class="mb-1.5 text-xs text-tertiary">
-            {{ KIND_LABELS[k] }}
-            <span class="opacity-70">
-              · {{ KINDS.find((x) => x.value === k)?.hint }}
-            </span>
+      <h3 class="text-sm font-medium text-secondary">状态类型与反应</h3>
+      <p class="mt-0.5 text-xs text-tertiary">
+        状态不只换个颜色——每种类型有自己的「反应」。预告提醒可在设置中关闭。
+      </p>
+      <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+        <div
+          v-for="k in KINDS"
+          :key="k.value"
+          class="rounded-xl border border-line bg-base-deep/30 px-3 py-2.5"
+        >
+          <div class="flex items-baseline gap-2">
+            <span class="text-sm font-medium text-primary">{{ k.label }}</span>
+            <span class="text-xs text-tertiary">{{ k.hint }}</span>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="(p, i) in STATE_PRESETS"
-              :key="p.label"
-              v-show="p.kind === k"
-              class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-default disabled:opacity-35"
-              :class="
-                hasPreset(i)
-                  ? 'border-line bg-base-deep/40 text-tertiary'
-                  : 'border-line bg-base-deep/40 text-primary hover:border-accent/50 hover:text-accent'
-              "
-              :disabled="hasPreset(i)"
-              :title="hasPreset(i) ? '已存在' : '添加到我的状态'"
-              @click="addFromPreset(i)"
-            >
-              <span
-                class="h-2.5 w-2.5 rounded-full"
-                :style="{ backgroundColor: p.color }"
-              />
-              {{ p.emoji }} {{ p.label }}
-              <span v-if="hasPreset(i)" class="opacity-60">✓</span>
-            </button>
-          </div>
+          <div class="mt-1 text-xs text-accent">⚡ {{ k.reaction }}</div>
         </div>
       </div>
     </section>
@@ -159,7 +110,7 @@ async function save() {
         <div>
           <h3 class="text-sm font-medium text-secondary">我的状态</h3>
           <p class="mt-0.5 text-xs text-tertiary">
-            时间块绑定状态；「休息」类型的状态会触发休息屏
+            时间块绑定状态；改类型即改变它的反应
           </p>
         </div>
         <button
@@ -213,8 +164,8 @@ async function save() {
                 颜色
               </label>
             </div>
-            <p class="truncate text-xs text-tertiary">
-              {{ KINDS.find((k) => k.value === s.kind)?.hint }}
+            <p class="truncate text-xs text-accent/80">
+              ⚡ {{ KINDS.find((k) => k.value === s.kind)?.reaction }}
             </p>
           </div>
           <button

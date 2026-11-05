@@ -98,7 +98,7 @@ function onClick(e: MouseEvent) {
       </div>
       <div
         v-if="nowLeft !== null"
-        class="absolute inset-y-0 w-0.5 bg-primary/80 shadow-[0_0_6px_rgba(251,241,199,0.8)]"
+        class="absolute inset-y-0 w-0.5 bg-primary/80"
         :style="{ left: nowLeft + '%' }"
       />
     </div>

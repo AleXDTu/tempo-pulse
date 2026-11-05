@@ -47,10 +47,10 @@ async function hideMini() {
   <div class="h-full w-full p-1.5" style="-webkit-app-region: no-drag">
     <div
       data-tauri-drag-region
-      class="relative flex h-full w-full select-none items-center gap-2.5 overflow-hidden rounded-2xl border border-line bg-surface px-3 shadow-2xl transition-colors duration-300"
+      class="relative flex h-full w-full select-none items-center gap-2.5 overflow-hidden rounded-2xl border border-line bg-surface px-3 transition-colors duration-300"
       :style="{
         borderColor: shownColor + '55',
-        boxShadow: `0 8px 32px rgba(0,0,0,.45), inset 0 0 20px ${shownColor}10`,
+        boxShadow: '0 8px 32px rgba(0,0,0,.45)',
       }"
       @dblclick="openMain"
     >
@@ -61,7 +61,11 @@ async function hideMini() {
       />
 
       <div class="pointer-events-none ml-2 flex min-w-0 flex-1 items-center gap-2">
-        <span class="text-xl leading-none">{{ shownEmoji }}</span>
+        <span
+          class="text-xl leading-none"
+          :class="pulse.state?.kind === 'slack' && running ? 'animate-pulse' : ''"
+          :title="pulse.state?.kind === 'slack' && running ? '摸鱼中 · ⌘⇧H 一键掩护' : undefined"
+        >{{ shownEmoji }}</span>
         <div class="min-w-0">
           <div class="flex items-baseline gap-1.5">
             <span

@@ -115,7 +115,7 @@ async function onKeydown(e: KeyboardEvent) {
           :initial="{ opacity: 0, y: 24, scale: 0.97 }"
           :animate="{ opacity: 1, y: 0, scale: 1 }"
           :transition="{ duration: 0.6, ease: 'easeOut' }"
-          class="text-center drop-shadow-2xl"
+          class="text-center"
         >
           <h1
             class="font-bold tracking-wide text-white"
@@ -123,8 +123,13 @@ async function onKeydown(e: KeyboardEvent) {
           >
             {{ settings?.title || "该休息啦 ☕" }}
           </h1>
-          <p class="mt-3 text-white/75" :class="windowMode ? 'text-sm' : 'text-lg'">
-            {{ settings?.subtitle || "离开屏幕，站起来走走，看看远处" }}
+          <!-- 时间块备注充当副标题 -->
+          <p
+            v-if="pulse.blockNote"
+            class="mt-3 text-white/75"
+            :class="windowMode ? 'text-sm' : 'text-lg'"
+          >
+            {{ pulse.blockNote }}
           </p>
         </motion.div>
 
@@ -134,13 +139,6 @@ async function onKeydown(e: KeyboardEvent) {
           :transition="{ duration: 0.9, delay: 0.3 }"
           class="text-center"
         >
-          <div
-            v-if="pulse.blockNote"
-            class="mx-auto mb-4 inline-block rounded-full border border-white/25 bg-black/25 px-4 py-1 text-sm text-white/85"
-            title="当前时间块的备注"
-          >
-            当前安排：📝 {{ pulse.blockNote }}
-          </div>
           <div
             class="tnum font-extralight text-white/95"
             :class="windowMode ? 'text-6xl' : 'text-8xl'"
