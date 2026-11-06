@@ -137,7 +137,7 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onDocClick));
           class="tnum flex h-[30px] w-full items-center justify-center rounded-md text-sm transition"
           :class="
             parsed?.h === h
-              ? 'bg-accent/25 text-accent'
+              ? 'bg-accent text-on-accent'
               : 'text-secondary hover:bg-raised'
           "
           @click="setH(h)"
@@ -153,7 +153,7 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onDocClick));
           class="tnum flex h-[30px] w-full items-center justify-center rounded-md text-sm transition"
           :class="
             minuteSel === m
-              ? 'bg-accent/25 text-accent'
+              ? 'bg-accent text-on-accent'
               : 'text-secondary hover:bg-raised'
           "
           @click="setM(m)"

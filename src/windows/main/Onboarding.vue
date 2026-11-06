@@ -121,7 +121,7 @@ function chooseTheme(t: ThemeName) {
             class="flex items-center gap-2 rounded-xl border p-2 pr-3 transition"
             :class="
               config.settings!.theme === t.key
-                ? 'border-accent bg-accent/10'
+                ? 'border-accent bg-raised'
                 : 'border-line bg-base-deep/40 hover:border-accent/40'
             "
             @click="chooseTheme(t.key as ThemeName)"
@@ -176,7 +176,7 @@ function chooseTheme(t: ThemeName) {
             class="flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition"
             :class="
               preset === t.key
-                ? 'border-accent/60 bg-accent/10'
+                ? 'border-accent bg-raised'
                 : 'border-line bg-base-deep/30 hover:border-accent/40'
             "
           >
@@ -195,7 +195,7 @@ function chooseTheme(t: ThemeName) {
             class="flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition"
             :class="
               preset === 'blank'
-                ? 'border-accent/60 bg-accent/10'
+                ? 'border-accent bg-raised'
                 : 'border-line bg-base-deep/30 hover:border-accent/40'
             "
           >

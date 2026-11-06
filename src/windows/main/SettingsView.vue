@@ -212,7 +212,7 @@ async function save() {
           class="rounded-xl border p-3 text-left transition"
           :class="
             working.theme === t.key
-              ? 'border-accent bg-accent/10'
+              ? 'border-accent bg-raised'
               : 'border-line bg-base-deep/40 hover:border-accent/40'
           "
           @click="setTheme(t.key)"
@@ -293,8 +293,8 @@ async function save() {
               <button
                 v-for="g in GRADIENT_PRESETS"
                 :key="g"
-                class="h-9 w-14 rounded-lg ring-1 transition hover:scale-105"
-                :class="rest.bgValue === g ? 'ring-accent' : 'ring-line'"
+                class="h-9 w-14 rounded-lg transition hover:scale-105"
+                :class="rest.bgValue === g ? 'border-2 border-accent' : 'border border-line'"
                 :style="{ background: g }"
                 @click="rest.bgValue = g"
               />
@@ -346,7 +346,7 @@ async function save() {
             class="cursor-pointer rounded-xl border p-3 transition"
             :class="
               rest?.mode === m.value
-                ? 'border-accent/60 bg-accent/10'
+                ? 'border-accent bg-raised'
                 : 'border-line bg-base-deep/30 hover:border-accent/40'
             "
           >
@@ -374,7 +374,7 @@ async function save() {
             class="cursor-pointer rounded-xl border p-3 transition"
             :class="
               rest?.strictness === s.value
-                ? 'border-accent/60 bg-accent/10'
+                ? 'border-accent bg-raised'
                 : 'border-line bg-base-deep/30 hover:border-accent/40'
             "
           >

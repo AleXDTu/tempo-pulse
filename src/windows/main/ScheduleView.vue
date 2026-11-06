@@ -272,7 +272,7 @@ async function save() {
         class="rounded-full border px-4 py-1.5 text-sm transition"
         :class="
           s.id === selectedId
-            ? 'border-accent/60 bg-accent/15 text-accent'
+            ? 'border-accent bg-accent text-on-accent'
             : 'border-line bg-base-deep/40 text-secondary hover:text-primary'
         "
         @click="selectedId = s.id"
@@ -304,7 +304,7 @@ async function save() {
               class="h-8 w-8 rounded-lg text-xs transition"
               :class="
                 selected.activeDays.includes(i + 1)
-                  ? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+                  ? 'bg-accent text-on-accent'
                   : 'bg-base-deep/40 text-tertiary hover:text-secondary'
               "
               :title="`周${label}生效`"
@@ -362,7 +362,7 @@ async function save() {
             class="rounded-lg border px-3 py-1.5 text-xs transition"
             :class="
               pendingTemplate === tpl.key
-                ? 'border-warning/60 bg-warning/15 text-warning'
+                ? 'border-warning text-warning'
                 : 'border-line bg-base-deep/40 text-secondary hover:border-accent/50 hover:text-accent'
             "
             :title="`${tpl.desc}（9:00-18:00 含午休）${pendingTemplate === tpl.key ? ' · 再点一次确认覆盖' : ''}`"
@@ -389,7 +389,7 @@ async function save() {
             blockInvalid(b)
               ? 'border-danger/60 bg-danger/10'
               : 'border-line bg-base-deep/40',
-            dragId === b.id ? 'opacity-50 ring-1 ring-accent/50' : '',
+            dragId === b.id ? 'opacity-50 border-accent' : '',
           ]"
         >
           <span
@@ -409,7 +409,7 @@ async function save() {
             <button
               v-for="m in CHIP_MINUTES"
               :key="m"
-              class="tnum rounded-md px-1.5 py-0.5 text-[10px] text-tertiary transition hover:bg-accent/20 hover:text-accent"
+              class="tnum rounded-md px-1.5 py-0.5 text-[10px] text-tertiary transition hover:bg-raised hover:text-accent"
               :title="`设为 ${m} 分钟（从开始时间起算）`"
               @click="setDuration(b, m)"
             >
