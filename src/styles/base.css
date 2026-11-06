@@ -91,6 +91,58 @@ body.theme-anim * {
     color 0.25s ease;
 }
 
+/* 自绘 checkbox / radio：原生未勾选态（白方块）与 gruvbox 不搭，
+   appearance:none 后完全自绘；置于 base 层，尺寸仍可被工具类覆盖 */
+@layer base {
+  input[type="checkbox"],
+  input[type="radio"] {
+    appearance: none;
+    flex: none;
+    cursor: pointer;
+    width: 1.1em;
+    height: 1.1em;
+    border: 2px solid var(--tp-fg-faint);
+    background: transparent;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  input[type="checkbox"] {
+    border-radius: 0.3em;
+  }
+  input[type="radio"] {
+    border-radius: 9999px;
+  }
+  input[type="checkbox"]:hover,
+  input[type="radio"]:hover {
+    border-color: var(--tp-fg-dim);
+  }
+  input[type="checkbox"]:checked,
+  input[type="radio"]:checked {
+    border-color: var(--tp-orange);
+    background-color: var(--tp-orange);
+  }
+  input[type="radio"]:checked {
+    background-image: radial-gradient(circle, var(--tp-on-accent) 0 32%, transparent 38%);
+  }
+  input[type="checkbox"]:checked::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: center / 68% no-repeat
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%231d2021" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5L19.5 6.5"/></svg>');
+  }
+  input[type="checkbox"]:focus-visible,
+  input[type="radio"]:focus-visible {
+    outline: 2px solid var(--tp-orange);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"]:disabled,
+  input[type="radio"]:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
 /* 隐藏滚动条但保留滚动（主内容区与顶栏对齐用；macOS 触控板/滚轮照常） */
 .no-scrollbar {
   scrollbar-width: none;

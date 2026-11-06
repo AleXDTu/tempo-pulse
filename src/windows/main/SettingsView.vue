@@ -350,7 +350,7 @@ async function save() {
                 v-model="rest!.mode"
                 type="radio"
                 :value="m.value"
-                class="accent-accent"
+                class="h-4 w-4"
               />
               <span class="text-sm font-medium text-primary">{{ m.label }}</span>
             </div>
@@ -378,7 +378,7 @@ async function save() {
                 v-model="rest!.strictness"
                 type="radio"
                 :value="s.value"
-                class="accent-accent"
+                class="h-4 w-4"
               />
               <span class="text-sm font-medium text-primary">{{ s.label }}</span>
             </div>
@@ -397,7 +397,7 @@ async function save() {
             法定节假日按「周末节奏」循环，调休补班日按「工作日节奏」循环
           </p>
         </div>
-        <input v-model="legal.enabled" type="checkbox" class="h-5 w-5 accent-accent" />
+        <input v-model="legal.enabled" type="checkbox" class="h-5 w-5" />
       </label>
 
       <div
@@ -434,7 +434,7 @@ async function save() {
               <input
                 v-model="legal.autoUpdate"
                 type="checkbox"
-                class="h-4 w-4 accent-accent"
+                class="h-4 w-4"
                 :disabled="!legal.enabled"
               />
               自动更新（每 24 小时）
@@ -468,7 +468,7 @@ async function save() {
           <div class="text-sm text-primary">节奏切换通知</div>
           <div class="text-xs text-tertiary">每次进入新时间块时发送系统通知（含块备注）</div>
         </div>
-        <input v-model="working.notifications" type="checkbox" class="h-5 w-5 accent-accent" />
+        <input v-model="working.notifications" type="checkbox" class="h-5 w-5" />
       </label>
 
       <label class="flex items-center justify-between rounded-xl bg-base-deep/30 px-4 py-3">
@@ -478,7 +478,7 @@ async function save() {
             专注类提前 5 分钟收尾预告 · 摸鱼类提前 2 分钟收敛预告（每块只提醒一次）
           </div>
         </div>
-        <input v-model="working.endReminders" type="checkbox" class="h-5 w-5 accent-accent" />
+        <input v-model="working.endReminders" type="checkbox" class="h-5 w-5" />
       </label>
 
       <label class="flex items-center justify-between rounded-xl bg-base-deep/30 px-4 py-3">
@@ -486,7 +486,7 @@ async function save() {
           <div class="text-sm text-primary">开机自启</div>
           <div class="text-xs text-tertiary">登录后自动在托盘里跑起节奏</div>
         </div>
-        <input v-model="working.autostart" type="checkbox" class="h-5 w-5 accent-accent" />
+        <input v-model="working.autostart" type="checkbox" class="h-5 w-5" />
       </label>
 
       <label class="flex items-center justify-between rounded-xl bg-base-deep/30 px-4 py-3">
@@ -494,7 +494,7 @@ async function save() {
           <div class="text-sm text-primary">迷你悬浮窗</div>
           <div class="text-xs text-tertiary">常驻置顶小窗（快捷键 ⌘⇧B）</div>
         </div>
-        <input v-model="working.mini.visible" type="checkbox" class="h-5 w-5 accent-accent" />
+        <input v-model="working.mini.visible" type="checkbox" class="h-5 w-5" />
       </label>
 
       <label
@@ -508,7 +508,7 @@ async function save() {
         <input
           v-model="working.mini.alwaysVisible"
           type="checkbox"
-          class="h-5 w-5 accent-accent"
+          class="h-5 w-5"
           :disabled="!working.mini.visible"
         />
       </label>

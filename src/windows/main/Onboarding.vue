@@ -184,7 +184,7 @@ function chooseTheme(t: ThemeName) {
               v-model="preset"
               type="radio"
               :value="t.key"
-              class="mt-1 accent-accent"
+              class="mt-1"
             />
             <div>
               <div class="text-sm font-medium text-primary">{{ t.name }}</div>
@@ -203,7 +203,7 @@ function chooseTheme(t: ThemeName) {
               v-model="preset"
               type="radio"
               value="blank"
-              class="mt-1 accent-accent"
+              class="mt-1"
             />
             <div>
               <div class="text-sm font-medium text-primary">空白时间表</div>
