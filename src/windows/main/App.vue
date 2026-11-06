@@ -6,6 +6,7 @@ import ScheduleView from "./ScheduleView.vue";
 import StatesView from "./StatesView.vue";
 import SettingsView from "./SettingsView.vue";
 import Onboarding from "./Onboarding.vue";
+import OverlayScroll from "../../components/OverlayScroll.vue";
 
 const pulse = usePulseStore();
 const config = useConfigStore();
@@ -167,11 +168,13 @@ async function toggleRun() {
       </button>
     </nav>
 
-    <!-- 内容区 -->
-    <main class="no-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-4">
-      <ScheduleView v-if="tab === 'schedule'" />
-      <StatesView v-else-if="tab === 'states'" />
-      <SettingsView v-else />
+    <!-- 内容区：悬浮滚动条（不占宽度，与顶栏对齐） -->
+    <main class="min-h-0 flex-1 px-5 py-4">
+      <OverlayScroll>
+        <ScheduleView v-if="tab === 'schedule'" />
+        <StatesView v-else-if="tab === 'states'" />
+        <SettingsView v-else />
+      </OverlayScroll>
     </main>
 
     <!-- 首次启动引导 -->
