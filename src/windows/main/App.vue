@@ -120,7 +120,6 @@ async function toggleRun() {
           </div>
           <div class="tnum mt-1.5 text-xs text-tertiary">
             {{ clock.on ? dateText : "时钟待引擎就绪" }}
-            <span v-if="clock.on" class="text-tertiary/80">{{ clock.ss }}</span>
           </div>
         </div>
 

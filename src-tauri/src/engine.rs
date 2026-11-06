@@ -5,7 +5,7 @@ use crate::holidays::HolidayStore;
 use crate::model::{weekday_index, LegalDaysSettings, PulseState, Schedule, StateKind};
 use crate::state::AppState;
 use crate::{tray, windows};
-use chrono::{DateTime, Local, NaiveDate, NaiveTime, Timelike};
+use chrono::{Local, NaiveDate, NaiveTime, Timelike};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
@@ -43,8 +43,6 @@ pub struct EngineState {
     last_block_id: Option<String>,
     last_state: Option<PulseState>,
     pub skipped: Option<Skipped>,
-    /// 「再躺一会儿」的截止时刻，到点后重新弹出休息屏
-    pub postponed_until: Option<DateTime<Local>>,
     /// 用户手动关掉休息屏且未跳过的块（该块内不再弹出）
     pub rest_dismissed_block: Option<String>,
     /// 已发送过结束预告的块 id（专注/摸鱼类，每块只发一次）
@@ -56,7 +54,6 @@ impl EngineState {
     pub fn reset(&mut self) {
         self.last_block_id = None;
         self.last_state = None;
-        self.postponed_until = None;
         self.rest_dismissed_block = None;
         self.pre_end_sent = None;
         self.skipped = None;
@@ -315,7 +312,6 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         let need_cleanup = engine.last_block_id.is_some();
         engine.last_block_id = None;
         engine.last_state = None;
-        engine.postponed_until = None;
         engine.rest_dismissed_block = None;
         engine.pre_end_sent = None;
         engine.skipped = None;
@@ -369,20 +365,6 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // 「再躺一会儿」到点：仍在休息块内则重新弹屏
-    if in_rest {
-        if let Some(until) = engine.postponed_until {
-            if now >= until {
-                engine.postponed_until = None;
-                let dismissed = engine.rest_dismissed_block.as_deref()
-                    == snap.block_id.as_deref();
-                if !dismissed {
-                    windows::show_rest(app);
-                }
-            }
-        }
-    }
-
     // 块切换检测
     if snap.block_id != engine.last_block_id {
         let from_state = engine.last_state.clone();
@@ -392,7 +374,6 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or(false);
         engine.last_block_id = snap.block_id.clone();
         engine.last_state = snap.state.clone();
-        engine.postponed_until = None;
         engine.rest_dismissed_block = None;
 
         let payload = serde_json::json!({ "from": from_state, "to": &snap });

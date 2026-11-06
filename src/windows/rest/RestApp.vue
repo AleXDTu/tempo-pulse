@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { motion } from "motion-v";
 import { usePulseStore } from "../../stores/pulse";
@@ -10,8 +10,6 @@ import { formatCountdown } from "../../lib/format";
 const pulse = usePulseStore();
 const config = useConfigStore();
 
-// postpone-once：每个休息块只允许「再躺 2 分钟」一次
-const postponeUsedFor = ref<string | null>(null);
 let unlisten: (() => void) | null = null;
 
 onMounted(async () => {
@@ -27,25 +25,12 @@ onUnmounted(() => {
   window.removeEventListener("keydown", onKeydown);
 });
 
-// 换块后重置「再躺」额度
-watch(
-  () => pulse.snapshot?.blockId,
-  (id, old) => {
-    if (id !== old) postponeUsedFor.value = null;
-  },
-);
-
 const settings = computed(() => config.settings?.restScreen);
 const strictness = computed(() => settings.value?.strictness ?? "skippable");
 /** 小窗模式：置顶弹出、顶部拖动条可移动；全屏模式保持接管式布局 */
 const windowMode = computed(() => settings.value?.mode === "window");
 
 const canSkip = computed(() => strictness.value === "skippable");
-const canPostpone = computed(
-  () =>
-    strictness.value === "postpone-once" &&
-    postponeUsedFor.value !== pulse.snapshot?.blockId,
-);
 
 const countdown = computed(() =>
   pulse.snapshot ? formatCountdown(pulse.snapshot.remainingSecs) : "--:--",
@@ -59,8 +44,8 @@ const nextHint = computed(() => {
 
 const bgStyle = computed(() => {
   const s = settings.value;
-  if (!s) return { background: "#0f172a" };
-  if (s.bgType === "color") return { background: s.bgValue || "#0f172a" };
+  if (!s) return { background: "#1d2021" };
+  if (s.bgType === "color") return { background: s.bgValue || "#1d2021" };
   if (s.bgType === "gradient") return { background: s.bgValue };
   return {
     backgroundImage: `url(${convertFileSrc(s.bgValue)})`,
@@ -71,11 +56,6 @@ const bgStyle = computed(() => {
 
 async function skip() {
   await invoke("skip_current_block");
-}
-
-async function postpone() {
-  postponeUsedFor.value = pulse.snapshot?.blockId ?? "used";
-  await invoke("postpone_rest_screen");
 }
 
 async function onKeydown(e: KeyboardEvent) {
@@ -162,14 +142,6 @@ async function onKeydown(e: KeyboardEvent) {
             @click="skip"
           >
             跳过休息
-          </button>
-          <button
-            v-if="canPostpone"
-            class="rounded-xl border border-white/25 px-6 py-2.5 text-sm text-white/80 backdrop-blur transition hover:bg-white/10"
-            :class="windowMode ? 'w-full py-2' : ''"
-            @click="postpone"
-          >
-            再躺 2 分钟
           </button>
           <span v-if="strictness === 'locked'" class="text-xs text-white/40">
             休息结束前不提供退出 · 深呼吸 🌿

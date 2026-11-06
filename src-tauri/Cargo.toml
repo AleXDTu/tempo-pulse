@@ -1,6 +1,6 @@
 [package]
 name = "tempo-pulse"
-version = "1.3.1"
+version = "1.4.0"
 description = "Tempo Pulse - 自定义时间节奏的桌面伴侣"
 authors = ["AleXDTu"]
 edition = "2021"

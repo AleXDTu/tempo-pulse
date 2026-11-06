@@ -243,6 +243,11 @@ pub fn load_or_default(path: &Path) -> AppConfig {
     match std::fs::read_to_string(path) {
         Ok(content) => match serde_json::from_str::<AppConfig>(&content) {
             Ok(mut cfg) => {
+                // v1.3 移除「可延时一次」档位：老配置迁移为可跳过
+                if cfg.settings.rest_screen.strictness == "postpone-once" {
+                    cfg.settings.rest_screen.strictness = "skippable".into();
+                    let _ = save(path, &cfg);
+                }
                 if migrate_legacy_legal_days(&mut cfg) {
                     println!("[tempo-pulse] 已迁移旧版法定日数据 → 跟随自动更新");
                     let _ = save(path, &cfg);

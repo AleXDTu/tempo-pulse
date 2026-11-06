@@ -129,7 +129,6 @@ pub fn do_skip(app: &AppHandle) {
         let st = app.state::<AppState>();
         let mut g = st.engine.write().unwrap();
         g.skipped = Some(Skipped { block_id, date: Local::now().date_naive() });
-        g.postponed_until = None;
         g.rest_dismissed_block = None;
     }
     let was_rest = snap
@@ -161,19 +160,6 @@ pub fn dismiss_rest_screen(app: AppHandle) {
         if let Some(id) = snap.block_id.clone() {
             g.rest_dismissed_block = Some(id);
         }
-        g.postponed_until = None;
-    }
-    windows::hide_rest(&app);
-    let _ = app.emit(crate::EV_REST_DISMISSED, ());
-}
-
-/// 「再躺一会儿」：2 分钟后仍在休息块内则重新弹屏
-#[tauri::command]
-pub fn postpone_rest_screen(app: AppHandle) {
-    {
-        let st = app.state::<AppState>();
-        st.engine.write().unwrap().postponed_until =
-            Some(Local::now() + chrono::Duration::minutes(2));
     }
     windows::hide_rest(&app);
     let _ = app.emit(crate::EV_REST_DISMISSED, ());

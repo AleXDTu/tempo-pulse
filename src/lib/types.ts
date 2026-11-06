@@ -38,7 +38,7 @@ export interface MiniSettings {
 }
 
 export type RestBgType = "color" | "gradient" | "image";
-export type RestStrictness = "skippable" | "postpone-once" | "locked";
+export type RestStrictness = "skippable" | "locked";
 export type RestMode = "fullscreen" | "window";
 
 export interface RestScreenSettings {

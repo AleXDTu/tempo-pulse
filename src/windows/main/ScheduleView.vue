@@ -251,7 +251,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl space-y-4 pb-4">
+  <div class="space-y-4 pb-4">
     <!-- 空状态 -->
     <div
       v-if="working.length === 0"

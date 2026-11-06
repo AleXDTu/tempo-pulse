@@ -116,7 +116,6 @@ pub fn run() {
             commands::check_holiday_update,
             commands::get_holiday_info,
             commands::dismiss_rest_screen,
-            commands::postpone_rest_screen,
             commands::save_rest_bg_image,
         ])
         .build(tauri::generate_context!())

@@ -82,7 +82,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl space-y-4 pb-4">
+  <div class="space-y-4 pb-4">
     <!-- 状态类型说明 -->
     <section class="rounded-2xl border border-line bg-surface p-5">
       <h3 class="text-sm font-medium text-secondary">状态类型与反应</h3>
@@ -126,7 +126,6 @@ async function save() {
           v-for="s in working"
           :key="s.id"
           class="flex items-center gap-3 rounded-xl border border-line bg-base-deep/30 p-3"
-          :style="{ boxShadow: `inset 3px 0 0 ${s.color}` }"
         >
           <div
             class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl"

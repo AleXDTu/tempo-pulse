@@ -56,7 +56,7 @@
   --color-primary: var(--tp-fg);
   --color-secondary: var(--tp-fg-dim);
   --color-tertiary: var(--tp-fg-faint);
-  --color-accent: var(--tp-blue);
+  --color-accent: var(--tp-orange);
   --color-on-accent: var(--tp-on-accent);
   --color-success: var(--tp-aqua);
   --color-warning: var(--tp-yellow);

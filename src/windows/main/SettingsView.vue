@@ -27,12 +27,7 @@ const STRICTNESSES: {
   label: string;
   desc: string;
 }[] = [
-  { value: "skippable", label: "可跳过", desc: "全屏接管，随时可跳过休息" },
-  {
-    value: "postpone-once",
-    label: "可延时一次",
-    desc: "可「再躺 2 分钟」一次，之后到点自动回屏",
-  },
+  { value: "skippable", label: "可跳过", desc: "弹出休息屏，随时可跳过休息" },
   { value: "locked", label: "锁死", desc: "休息结束前没有退出按钮（仍可切走窗口）" },
 ];
 
@@ -198,7 +193,7 @@ async function save() {
 </script>
 
 <template>
-  <div v-if="working" class="mx-auto max-w-4xl space-y-4 pb-4">
+  <div v-if="working" class="space-y-4 pb-4">
     <!-- 外观 -->
     <section class="space-y-3 rounded-2xl border border-line bg-surface p-5">
       <div>
@@ -367,7 +362,7 @@ async function save() {
       <!-- 强度 -->
       <div class="space-y-2">
         <span class="text-sm text-secondary">强制强度</span>
-        <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
           <label
             v-for="s in STRICTNESSES"
             :key="s.value"

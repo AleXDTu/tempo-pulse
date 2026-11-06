@@ -71,7 +71,7 @@ function chooseTheme(t: ThemeName) {
 <template>
   <div
     v-if="config.settings"
-    class="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-8 backdrop-blur-sm"
+    class="absolute inset-0 z-50 flex items-center justify-center bg-base/85 p-8 backdrop-blur-sm"
   >
     <div class="w-full max-w-lg rounded-3xl border border-line bg-surface p-8 shadow-2xl">
       <!-- 进度点 -->
