@@ -91,6 +91,15 @@ body.theme-anim * {
     color 0.25s ease;
 }
 
+/* 隐藏滚动条但保留滚动（主内容区与顶栏对齐用；macOS 触控板/滚轮照常） */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 /* 数字滚动等宽显示 */
 .tnum {
   font-variant-numeric: tabular-nums;

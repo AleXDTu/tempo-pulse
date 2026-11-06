@@ -168,7 +168,7 @@ async function toggleRun() {
     </nav>
 
     <!-- 内容区 -->
-    <main class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+    <main class="no-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-4">
       <ScheduleView v-if="tab === 'schedule'" />
       <StatesView v-else-if="tab === 'states'" />
       <SettingsView v-else />
