@@ -316,7 +316,7 @@ async function save() {
           <div class="flex-1"></div>
           <button
             v-if="working.length > 1"
-            class="rounded-lg border border-danger/30 px-3 py-1.5 text-xs text-danger/90 transition hover:bg-danger/10"
+            class="rounded-lg border border-danger px-3 py-1.5 text-xs text-danger transition hover:bg-danger hover:text-on-accent"
             @click="removeSchedule"
           >
             删除此表
@@ -363,7 +363,7 @@ async function save() {
             :class="
               pendingTemplate === tpl.key
                 ? 'border-warning text-warning'
-                : 'border-line bg-base-deep/40 text-secondary hover:border-accent/50 hover:text-accent'
+                : 'border-line bg-base-deep/40 text-secondary hover:border-accent hover:text-accent'
             "
             :title="`${tpl.desc}（9:00-18:00 含午休）${pendingTemplate === tpl.key ? ' · 再点一次确认覆盖' : ''}`"
             @click="applyTemplate(tpl)"
@@ -387,7 +387,7 @@ async function save() {
           class="flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 transition"
           :class="[
             blockInvalid(b)
-              ? 'border-danger/60 bg-danger/10'
+              ? 'border-danger bg-base-deep/40'
               : 'border-line bg-base-deep/40',
             dragId === b.id ? 'opacity-50 border-accent' : '',
           ]"
@@ -441,7 +441,7 @@ async function save() {
               ⧉
             </button>
             <button
-              class="rounded-lg px-2 py-1 text-tertiary transition hover:bg-danger/15 hover:text-danger"
+              class="rounded-lg px-2 py-1 text-tertiary transition hover:bg-danger hover:text-on-accent"
               title="删除此块"
               @click="removeBlock(selected, b.id)"
             >
@@ -457,7 +457,7 @@ async function save() {
         <span v-else-if="invalidCount > 0" class="text-xs text-danger">
           {{ invalidCount }} 个时间块时间无效
         </span>
-        <span v-else-if="dirty" class="text-xs text-warning/90">有未保存的更改</span>
+        <span v-else-if="dirty" class="text-xs text-warning">有未保存的更改</span>
         <button
           class="rounded-xl bg-accent px-5 py-2 text-sm font-medium text-on-accent transition hover:opacity-90 disabled:opacity-40"
           :disabled="!dirty && invalidCount === 0"

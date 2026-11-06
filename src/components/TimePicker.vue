@@ -107,7 +107,7 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onDocClick));
       <input
         v-model="text"
         class="tnum h-8 w-[92px] rounded-lg border border-line bg-raised/40 px-2 pr-6 text-sm outline-none transition focus:border-accent"
-        :class="parsed ? 'border-line' : 'border-danger/60'"
+        :class="parsed ? 'border-line' : 'border-danger'"
         placeholder="HH:MM"
         @input="onInput"
         @blur="onBlur"

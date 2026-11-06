@@ -84,7 +84,7 @@ function chooseTheme(t: ThemeName) {
             i === step
               ? 'w-6 bg-accent'
               : i < step
-                ? 'w-1.5 bg-accent/50'
+                ? 'w-1.5 bg-accent'
                 : 'w-1.5 bg-raised'
           "
         />
@@ -122,7 +122,7 @@ function chooseTheme(t: ThemeName) {
             :class="
               config.settings!.theme === t.key
                 ? 'border-accent bg-raised'
-                : 'border-line bg-base-deep/40 hover:border-accent/40'
+                : 'border-line bg-base-deep/40 hover:border-accent'
             "
             @click="chooseTheme(t.key as ThemeName)"
           >
@@ -177,7 +177,7 @@ function chooseTheme(t: ThemeName) {
             :class="
               preset === t.key
                 ? 'border-accent bg-raised'
-                : 'border-line bg-base-deep/30 hover:border-accent/40'
+                : 'border-line bg-base-deep/30 hover:border-accent'
             "
           >
             <input
@@ -196,7 +196,7 @@ function chooseTheme(t: ThemeName) {
             :class="
               preset === 'blank'
                 ? 'border-accent bg-raised'
-                : 'border-line bg-base-deep/30 hover:border-accent/40'
+                : 'border-line bg-base-deep/30 hover:border-accent'
             "
           >
             <input

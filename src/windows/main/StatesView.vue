@@ -163,12 +163,12 @@ async function save() {
                 颜色
               </label>
             </div>
-            <p class="truncate text-xs text-accent/80">
+            <p class="truncate text-xs text-accent">
               ⚡ {{ KINDS.find((k) => k.value === s.kind)?.reaction }}
             </p>
           </div>
           <button
-            class="rounded-lg px-2 py-1 text-tertiary transition hover:bg-danger/15 hover:text-danger disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            class="rounded-lg px-2 py-1 text-tertiary transition hover:bg-danger hover:text-on-accent disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
             :disabled="referencedIds.has(s.id)"
             :title="referencedIds.has(s.id) ? '已被时间块引用，不可删除' : '删除此状态'"
             @click="removeState(s.id)"
@@ -181,7 +181,7 @@ async function save() {
 
     <div class="flex items-center justify-end gap-3">
       <span v-if="saveError" class="text-xs text-danger">{{ saveError }}</span>
-      <span v-else-if="dirty" class="text-xs text-warning/90">有未保存的更改</span>
+      <span v-else-if="dirty" class="text-xs text-warning">有未保存的更改</span>
       <button
         class="rounded-xl bg-accent px-5 py-2 text-sm font-medium text-on-accent transition hover:opacity-90 disabled:opacity-40"
         :disabled="!dirty"

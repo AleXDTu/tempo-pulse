@@ -208,7 +208,7 @@ async function save() {
           :class="
             working.theme === t.key
               ? 'border-accent bg-raised'
-              : 'border-line bg-base-deep/40 hover:border-accent/40'
+              : 'border-line bg-base-deep/40 hover:border-accent'
           "
           @click="setTheme(t.key)"
         >
@@ -304,7 +304,7 @@ async function save() {
           <!-- 图片 -->
           <div v-else class="space-y-2 text-sm">
             <label
-              class="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-line px-3 py-4 text-xs text-secondary transition hover:border-accent/50 hover:text-primary"
+              class="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-line px-3 py-4 text-xs text-secondary transition hover:border-accent hover:text-primary"
             >
               {{ imageBusy ? "保存中…" : "选择本地图片（jpg / png / webp / gif）" }}
               <input
@@ -342,7 +342,7 @@ async function save() {
             :class="
               rest?.mode === m.value
                 ? 'border-accent bg-raised'
-                : 'border-line bg-base-deep/30 hover:border-accent/40'
+                : 'border-line bg-base-deep/30 hover:border-accent'
             "
           >
             <div class="flex items-center gap-2">
@@ -370,7 +370,7 @@ async function save() {
             :class="
               rest?.strictness === s.value
                 ? 'border-accent bg-raised'
-                : 'border-line bg-base-deep/30 hover:border-accent/40'
+                : 'border-line bg-base-deep/30 hover:border-accent'
             "
           >
             <div class="flex items-center gap-2">
@@ -406,7 +406,7 @@ async function save() {
       >
         <!-- 数据概况 -->
         <div class="flex flex-wrap items-center gap-2 text-xs">
-          <span class="rounded-full bg-success/15 px-3 py-1 text-success">
+          <span class="rounded-full bg-raised/50 px-3 py-1 text-success">
             数据来源 holiday-cn
           </span>
           <span class="rounded-full bg-raised/50 px-3 py-1 text-secondary">
@@ -525,7 +525,7 @@ async function save() {
 
     <div class="flex items-center justify-end gap-3">
       <span v-if="saveError" class="text-xs text-danger">{{ saveError }}</span>
-      <span v-else-if="dirty" class="text-xs text-warning/90">有未保存的更改</span>
+      <span v-else-if="dirty" class="text-xs text-warning">有未保存的更改</span>
       <button
         class="rounded-xl bg-accent px-5 py-2 text-sm font-medium text-on-accent transition hover:opacity-90 disabled:opacity-40"
         :disabled="!dirty"
