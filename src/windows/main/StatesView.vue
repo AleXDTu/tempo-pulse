@@ -71,7 +71,7 @@ function addState() {
     emoji: "✨",
     color: "#d3869b",
     kind: "custom",
-    effects_enabled: true,
+    effectsEnabled: true,
     effects: [],
   });
 }
@@ -216,7 +216,7 @@ async function save() {
           <div v-if="s.kind === 'custom'" class="mt-3 border-t border-line pt-2.5">
             <div class="flex items-center justify-between">
               <label class="flex items-center gap-2 text-xs text-secondary">
-                <input v-model="s.effects_enabled" type="checkbox" class="h-4 w-4" />
+                <input v-model="s.effectsEnabled" type="checkbox" class="h-4 w-4" />
                 进入时特效
                 <span class="text-tertiary">总开关临时关掉，不丢所选组合</span>
               </label>

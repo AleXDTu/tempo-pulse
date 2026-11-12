@@ -16,7 +16,7 @@
     { id: "st-focus", label: "专注", emoji: "🎯", color: "#b8bb26", kind: "focus" },
     { id: "st-rest", label: "休息", emoji: "🍵", color: "#83a598", kind: "rest" },
     { id: "st-slack", label: "摸鱼", emoji: "🐟", color: "#fabd2f", kind: "slack" },
-    { id: "st-custom", label: "灵感", emoji: "✨", color: "#d3869b", kind: "custom" },
+    { id: "st-custom", label: "灵感", emoji: "✨", color: "#d3869b", kind: "custom", effectsEnabled: true, effects: [] },
   ];
 
   const schedules = [

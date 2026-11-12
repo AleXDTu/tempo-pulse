@@ -94,7 +94,7 @@ watch(
   (t) => {
     if (!t) return;
     const s = t.to.state;
-    if (!s || s.kind !== "custom" || s.effects_enabled === false) return;
+    if (!s || s.kind !== "custom" || s.effectsEnabled === false) return;
     void playStateEffects(s);
   },
 );

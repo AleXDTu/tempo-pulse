@@ -13,7 +13,7 @@ export interface PulseState {
   color: string;
   kind: StateKind;
   /** 特效总开关（「单独开关」的载体）：关掉时保留所选组合但到点不播。仅对 custom 类型生效 */
-  effects_enabled?: boolean;
+  effectsEnabled?: boolean;
   /** 进入该状态块时播放的特效；空数组 = 没选特效。仅对 custom 类型生效 */
   effects?: StateEffectType[];
 }
