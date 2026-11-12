@@ -1,0 +1,52 @@
+{
+  "states": [
+    { "id": "st-focus", "label": "专注", "emoji": "🎯", "color": "#b8bb26", "kind": "focus" },
+    { "id": "st-rest", "label": "休息", "emoji": "🍵", "color": "#83a598", "kind": "rest" },
+    { "id": "st-slack", "label": "摸鱼", "emoji": "🐟", "color": "#fabd2f", "kind": "slack" },
+    { "id": "st-deep", "label": "深度工作", "emoji": "🧠", "color": "#8ec07c", "kind": "custom" }
+  ],
+  "schedules": [
+    {
+      "id": "sched-weekday",
+      "name": "工作日节奏",
+      "blocks": [
+        { "id": "blk-w1", "start": "09:00", "end": "11:30", "stateId": "st-focus", "note": "上午深潜" },
+        { "id": "blk-w2", "start": "11:30", "end": "12:00", "stateId": "st-rest", "note": null },
+        { "id": "blk-w3", "start": "13:30", "end": "15:00", "stateId": "st-deep", "note": "下午深度块" },
+        { "id": "blk-w4", "start": "15:00", "end": "15:20", "stateId": "st-slack", "note": null }
+      ],
+      "activeDays": [1, 2, 3, 4, 5]
+    },
+    {
+      "id": "sched-weekend",
+      "name": "周末轻节奏",
+      "blocks": [
+        { "id": "blk-e1", "start": "10:00", "end": "11:00", "stateId": "st-slack", "note": "随便干点啥" }
+      ],
+      "activeDays": [6, 7]
+    }
+  ],
+  "settings": {
+    "mini": { "x": null, "y": null, "visible": true, "alwaysVisible": false },
+    "restScreen": {
+      "mode": "window",
+      "bgType": "gradient",
+      "bgValue": "linear-gradient(160deg, #282828, #504945)",
+      "title": "歇口气",
+      "strictness": "locked"
+    },
+    "legalDays": {
+      "enabled": false,
+      "holidays": [],
+      "workdays": [],
+      "autoUpdate": false,
+      "lastUpdated": null
+    },
+    "running": true,
+    "onboarded": true,
+    "theme": "light",
+    "endReminders": false,
+    "autostart": false,
+    "notifications": false
+  }
+}

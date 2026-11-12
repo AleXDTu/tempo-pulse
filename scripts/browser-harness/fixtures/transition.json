@@ -1,0 +1,28 @@
+{
+  "from": {
+    "id": "st-focus",
+    "label": "专注",
+    "emoji": "🎯",
+    "color": "#b8bb26",
+    "kind": "focus"
+  },
+  "to": {
+    "state": {
+      "id": "st-rest",
+      "label": "休息",
+      "emoji": "🍵",
+      "color": "#83a598",
+      "kind": "rest"
+    },
+    "blockNote": null,
+    "blockId": "blk-rest-1",
+    "remainingSecs": 600,
+    "progress": 0,
+    "nextAt": "11:30",
+    "nextStateLabel": "专注",
+    "scheduleName": "工作日节奏",
+    "now": "11:29:59",
+    "isIdle": false,
+    "running": true
+  }
+}

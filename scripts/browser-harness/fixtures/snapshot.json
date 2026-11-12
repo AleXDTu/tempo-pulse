@@ -1,0 +1,19 @@
+{
+  "state": {
+    "id": "st-slack",
+    "label": "摸鱼",
+    "emoji": "🐟",
+    "color": "#fabd2f",
+    "kind": "slack"
+  },
+  "blockNote": "下午茶摸鱼时间",
+  "blockId": "blk-slack-1",
+  "remainingSecs": 123,
+  "progress": 0.82,
+  "nextAt": "16:30",
+  "nextStateLabel": "专注",
+  "scheduleName": "工作日节奏",
+  "now": "16:9:3",
+  "isIdle": false,
+  "running": true
+}
