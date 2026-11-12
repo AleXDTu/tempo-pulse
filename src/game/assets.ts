@@ -4,17 +4,9 @@
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 
-/** 主角各状态图的约定文件名（放应用数据目录 game/hero/ 下，缺哪张补哪张占位） */
+/** 主角各状态图的约定文件名（放应用数据目录 game/hero/ 下，缺的状态画程序化小人） */
 export const HERO_STATES = ["idle", "run", "jump", "shoot", "hurt"] as const;
 export type HeroState = (typeof HERO_STATES)[number];
-
-export interface HeroSprites {
-  idle: CanvasImageSource;
-  run: CanvasImageSource;
-  jump: CanvasImageSource;
-  shoot: CanvasImageSource;
-  hurt: CanvasImageSource;
-}
 
 export interface GameSprites {
   /** 平台瓦片：左端帽 / 中段 / 右端帽（已做夜色处理） */
@@ -25,9 +17,8 @@ export interface GameSprites {
   block: HTMLImageElement;
   /** 子弹（16×16 竖条，绘制时按弹道旋转） */
   bullet: HTMLImageElement;
-  hero: HeroSprites;
-  /** 用户是否提供了任一主角状态图（README 提示用） */
-  heroCustom: Partial<Record<HeroState, boolean>>;
+  /** 用户自定义主角图（按状态；缺的状态由渲染层画程序化像素小人） */
+  hero: Partial<Record<HeroState, HTMLImageElement>>;
 }
 
 const tileUrls = import.meta.glob("../assets/game/kenney/tiles/*.png", {
@@ -41,11 +32,6 @@ const blockUrls = import.meta.glob("../assets/game/kenney/blocks/*.png", {
   import: "default",
 }) as Record<string, string>;
 const bulletUrls = import.meta.glob("../assets/game/kenney/bullets/*.png", {
-  eager: true,
-  query: "?url",
-  import: "default",
-}) as Record<string, string>;
-const heroFallbackUrls = import.meta.glob("../assets/game/hero-fallback/*.png", {
   eager: true,
   query: "?url",
   import: "default",
@@ -107,13 +93,12 @@ function loadUserImage(path: string): Promise<HTMLImageElement | null> {
 export async function loadGameAssets(): Promise<GameSprites> {
   const tile = async (name: string) =>
     nightTint(await loadImage(tileUrls[`../assets/game/kenney/tiles/${name}.png`]));
-  const [tileLeft, tileMid, tileRight, block, bullet, fallback] = await Promise.all([
+  const [tileLeft, tileMid, tileRight, block, bullet] = await Promise.all([
     tile("tile_0132"),
     tile("tile_0133"),
     tile("tile_0134"),
     loadImage(blockUrls["../assets/game/kenney/blocks/tile_0000.png"]),
     loadImage(bulletUrls["../assets/game/kenney/bullets/tile_0000.png"]),
-    loadImage(heroFallbackUrls["../assets/game/hero-fallback/hero-fallback.png"]),
   ]);
 
   // 用户主角图探测：缺哪张（或加载失败）补哪张占位
@@ -124,14 +109,12 @@ export async function loadGameAssets(): Promise<GameSprites> {
     // 命令不存在（老版本 Rust 侧）或浏览器 harness 未注册：全部用占位图
     paths = { bgm: null, hero: {} };
   }
-  const heroCustom: Partial<Record<HeroState, boolean>> = {};
-  const hero = {} as HeroSprites;
+  const hero: Partial<Record<HeroState, HTMLImageElement>> = {};
   for (const state of HERO_STATES) {
     const p = paths.hero[state];
     const userImg = p ? await loadUserImage(p) : null;
-    heroCustom[state] = userImg !== null;
-    hero[state] = userImg ?? fallback;
+    if (userImg) hero[state] = userImg;
   }
 
-  return { tileLeft, tileMid, tileRight, block, bullet, hero, heroCustom };
+  return { tileLeft, tileMid, tileRight, block, bullet, hero };
 }

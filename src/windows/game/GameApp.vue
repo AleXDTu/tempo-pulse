@@ -33,13 +33,20 @@ onUnmounted(() => {
       style="image-rendering: pixelated"
     ></canvas>
 
-    <!-- 自绘顶栏：拖动区 + 标题 + 关闭（悬浮在画布上，不占布局，画布保持整数倍） -->
+    <!-- 自绘顶栏：拖动区 + 标题 + 操作提示 + 关闭（悬浮在画布上，不占布局，画布保持整数倍） -->
     <div
       data-tauri-drag-region
       class="absolute inset-x-0 top-0 flex h-9 items-center justify-between bg-[#101223]/80 px-3 backdrop-blur-sm"
     >
       <span data-tauri-drag-region class="select-none text-xs font-medium text-[#ebdbb2]">
         摸鱼突击
+      </span>
+      <!-- 操作提示放画布外的 DOM 层，不压游戏画面（原来画在画布底部，和屋顶瓦片糊在一起） -->
+      <span
+        data-tauri-drag-region
+        class="absolute left-1/2 -translate-x-1/2 select-none whitespace-nowrap text-xs text-[#a89984]"
+      >
+        ←→ 转身 · ↑↓ 角度 · 空格跳 · J 射击 · Esc 暂停
       </span>
       <button
         class="flex h-6 w-6 items-center justify-center rounded-md text-sm text-[#a89984] transition hover:bg-[#fb4934] hover:text-white"

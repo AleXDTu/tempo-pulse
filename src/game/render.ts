@@ -105,6 +105,55 @@ const ENEMY_TINT: Record<Enemy["kind"], string> = {
 
 const STAR_COLORS = ["#d5cfa1", "#ebdbb2", "#83a598", "#b8bb26"];
 
+/** 程序化主角的像素点阵：14×18（撞盒同尺寸），朝右画、反向时整图镜像。
+ * 字符：R 红头带（含飘带）S 皮肤/浅色衣 E 眼 K 腰带/军靴 . 透明。
+ * 上半身 12 行共用，差异在腿部；跳跃收腿，跑步跨步与并腿交替。
+ */
+const HERO_BODY_ROWS = [
+  "....RRRRR.....",
+  ".R..RRRRR.....",
+  ".RR.SSSSES....",
+  ".RR.SSSSS.....",
+  ".....SSS......",
+  "....SSSSS.....",
+  "...SSSSSSS....",
+  "...SSSSSS.....",
+  "...SSSSSSSSS..",
+  "...SSSSSS.....",
+  "...SSSSSS.....",
+  "...KKKKKK.....",
+];
+
+/** 站立/跑步并腿帧（腿部 6 行） */
+const HERO_STAND_ROWS = [
+  "....SS.SS.....",
+  "....SS.SS.....",
+  "....SS.SS.....",
+  "....SS.SS.....",
+  "....SS.SS.....",
+  "....KK.KK.....",
+];
+
+/** 跑步跨步帧：前腿迈出到落地、后腿抬起 */
+const HERO_STRIDE_ROWS = [
+  "....SSSSS.....",
+  "....SS..SS....",
+  "...SS....SS...",
+  "...SS.....SS..",
+  "...KK.....SS..",
+  "..........KK..",
+];
+
+/** 跳跃收腿帧 */
+const HERO_TUCK_ROWS = [
+  "...SSSSSS.....",
+  "...SS..SS.....",
+  "...KK..KK.....",
+  "..............",
+  "..............",
+  "..............",
+];
+
 /** mulberry32：可换 seed 的确定性伪随机 */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -228,7 +277,7 @@ export class Renderer {
     this.nearOffset += scroll * 0.3;
     this.decoOffset += scroll * 1.25;
     this.moonX -= scroll * 0.012;
-    if (this.moonX < -50) this.moonX = VIEW_W + 50;
+    if (this.moonX < -30) this.moonX = VIEW_W + 30;
 
     // 回收左端、补右端
     while (this.far.length && this.far[0].x + this.far[0].w - this.farOffset < -40) this.far.shift();
@@ -283,26 +332,31 @@ export class Renderer {
     }
     ctx.globalAlpha = 1;
 
-    // 2. 大月亮（极缓慢漂移）
+    // 2. 远月（极缓慢漂移层）：小盘贴着画面上缘，压暗的米色不抢夜景
     const mx = Math.round(this.moonX);
-    const my = 52;
-    ctx.fillStyle = "#e9ddc0";
+    const my = 34;
+    // 暗色月晕：比夜空亮一档的冷紫灰，两层向外晕开
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "#3f3d58";
     ctx.beginPath();
-    ctx.arc(mx, my, 24, 0, Math.PI * 2);
+    ctx.arc(mx, my, 22, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#d8cda8";
+    ctx.globalAlpha = 0.16;
     ctx.beginPath();
-    ctx.arc(mx - 8, my - 6, 4, 0, Math.PI * 2);
-    ctx.arc(mx + 7, my + 3, 6, 0, Math.PI * 2);
-    ctx.arc(mx - 3, my + 11, 3, 0, Math.PI * 2);
-    ctx.fill();
-    // 月晕
-    ctx.globalAlpha = 0.12;
-    ctx.fillStyle = "#e9ddc0";
-    ctx.beginPath();
-    ctx.arc(mx, my, 32, 0, Math.PI * 2);
+    ctx.arc(mx, my, 30, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
+    // 月盘 + 环形山（都收在盘内）
+    ctx.fillStyle = "#c6bda0";
+    ctx.beginPath();
+    ctx.arc(mx, my, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#aea67f";
+    ctx.beginPath();
+    ctx.arc(mx - 4, my - 5, 2.5, 0, Math.PI * 2);
+    ctx.arc(mx + 6, my + 2, 3.5, 0, Math.PI * 2);
+    ctx.arc(mx - 2, my + 8, 2, 0, Math.PI * 2);
+    ctx.fill();
 
     // 3. 云层（慢）
     ctx.fillStyle = "rgba(38,42,61,0.85)";
@@ -379,22 +433,25 @@ export class Renderer {
       ctx.restore();
     }
 
-    // 10. 主角
+    // 10. 主角：用户状态图优先，缺省画程序化像素小人（高对比、看得出朝向）
     if (g.heroVisible) {
       const spr = this.sprites.hero[g.heroState];
-      const dy = Math.round(g.heroY) - 22;
       ctx.save();
-      ctx.translate(HERO_X, dy + 12);
+      ctx.translate(HERO_X, Math.round(g.heroY));
       ctx.scale(g.facing, 1);
-      ctx.drawImage(spr, -12, -12, 24, 24);
+      if (spr) {
+        ctx.drawImage(spr, -12, -22, 24, 24);
+      } else {
+        this.drawHero(ctx, g.heroState, g.frame);
+      }
       ctx.restore();
-      // 枪（面朝方向的小机枪）
+      // 枪（面朝方向的小机枪，提亮保证夜色里可见）
       const gy = Math.round(g.heroY) - 10;
       const aim = (AIM_ANGLES[g.aimIdx] * Math.PI) / 180;
       const gunLen = 11;
       const gx2 = gunLen * Math.cos(aim) * g.facing;
       const gy2 = -gunLen * Math.sin(aim);
-      ctx.strokeStyle = "#3c3f4c";
+      ctx.strokeStyle = "#bdae93";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(HERO_X, gy);
@@ -474,6 +531,29 @@ export class Renderer {
     }
   }
 
+  /** 程序化主角：按状态拼点阵逐像素画（受击整体换红色调），朝向由外层 scale 镜像 */
+  private drawHero(ctx: CanvasRenderingContext2D, state: HeroState, frame: number) {
+    const legs =
+      state === "jump"
+        ? HERO_TUCK_ROWS
+        : state === "run" || state === "shoot"
+          ? (((frame / 6) | 0) % 2 ? HERO_STRIDE_ROWS : HERO_STAND_ROWS)
+          : HERO_STAND_ROWS;
+    const hurt = state === "hurt";
+    const colors: Record<string, string> = hurt
+      ? { R: "#ebdbb2", S: "#fb4934", E: "#1d1d2b", K: "#9d0006" }
+      : { R: "#fb4934", S: "#ebdbb2", E: "#1d1d2b", K: "#665c54" };
+    for (let r = 0; r < 18; r++) {
+      const row = r < 12 ? HERO_BODY_ROWS[r] : legs[r - 12];
+      for (let c = 0; c < 14; c++) {
+        const ch = row[c];
+        if (ch === ".") continue;
+        ctx.fillStyle = colors[ch];
+        ctx.fillRect(c - 7, r - 18, 1, 1);
+      }
+    }
+  }
+
   private drawHud(ctx: CanvasRenderingContext2D, g: GameView) {
     ctx.font = "bold 9px monospace";
     ctx.textBaseline = "top";
@@ -523,15 +603,6 @@ export class Renderer {
     // 静音状态（右下）
     ctx.fillStyle = "#665c54";
     ctx.fillText(`音效 M:${g.muted ? "关" : "开"}`, VIEW_W - 70, VIEW_H - 16);
-    // 开局操作提示（前 6 秒）
-    if (g.frame < 360 && g.phase === "playing") {
-      ctx.globalAlpha = Math.min(1, (360 - g.frame) / 60);
-      ctx.fillStyle = "#ebdbb2";
-      ctx.textAlign = "center";
-      ctx.fillText("←→ 转身 · ↑↓ 角度 · 空格跳 · J 射击 · Esc 暂停", VIEW_W / 2, VIEW_H - 30);
-      ctx.textAlign = "left";
-      ctx.globalAlpha = 1;
-    }
   }
 
   private drawMenu(ctx: CanvasRenderingContext2D, g: GameView) {
