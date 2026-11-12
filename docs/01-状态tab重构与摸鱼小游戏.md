@@ -331,7 +331,7 @@ Rust 侧 `model.rs` 的 `PulseState` 加两个字段：`#[serde(default = "defau
 
 ## 和方案不一样的地方
 
-（实施后填写）无。
+1. 第 1 期验收发现字段错位：方案里 types.ts 写的 `effects_enabled` 与 Rust `rename_all = "camelCase"` 序列化出的 `effectsEnabled` 对不上，总开关重启后显示未勾选、每次保存被重置为开。修复：前端统一用 `effectsEnabled`；Rust 手写 `PulseState` 的 `Serialize`，非 custom 类型不序列化 `effectsEnabled` / `effects`（这两个字段只对 custom 有意义，存量配置下次保存自动清掉），`effect_fields_roundtrip_camel_case` 保留并新增 `non_custom_state_omits_effect_fields`。
 
 ## 需要拍板的事和遗留
 

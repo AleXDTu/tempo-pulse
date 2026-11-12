@@ -2,7 +2,7 @@
 //! 与前端 src/lib/types.ts 一一对应（serde camelCase），修改任一侧需同步另一侧。
 
 use chrono::{Datelike, NaiveDate};
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -14,7 +14,7 @@ pub enum StateKind {
     Custom,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PulseState {
     pub id: String,
@@ -28,6 +28,26 @@ pub struct PulseState {
     /// 进入该状态块时播放的特效；空数组 = 没选特效。仅对 custom 类型生效
     #[serde(default)]
     pub effects: Vec<String>,
+}
+
+/// 序列化键名固定 camelCase（与前端 types.ts 对应）。特效两个字段只对 custom 有意义：
+/// 其他类型不写这两个键，config.json 与前端收到的数据保持干净
+/// （存量配置里 focus/slack/rest 已写入的这两个字段，下一次保存时随之消失）。
+impl Serialize for PulseState {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let custom = self.kind == StateKind::Custom;
+        let mut s = serializer.serialize_struct("PulseState", if custom { 7 } else { 5 })?;
+        s.serialize_field("id", &self.id)?;
+        s.serialize_field("label", &self.label)?;
+        s.serialize_field("emoji", &self.emoji)?;
+        s.serialize_field("color", &self.color)?;
+        s.serialize_field("kind", &self.kind)?;
+        if custom {
+            s.serialize_field("effectsEnabled", &self.effects_enabled)?;
+            s.serialize_field("effects", &self.effects)?;
+        }
+        s.end()
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -420,6 +440,28 @@ mod tests {
         assert_eq!(v["effects"], serde_json::json!(["shake", "finale"]));
         let back: PulseState = serde_json::from_value(v).unwrap();
         assert_eq!(back, s);
+    }
+
+    #[test]
+    fn non_custom_state_omits_effect_fields() {
+        // 特效字段只对 custom 有意义：focus/slack/rest 序列化时不写这两个键，
+        // 反序列化照常补默认值，结构体字段不丢
+        let s = PulseState {
+            id: "st-focus".into(),
+            label: "专注".into(),
+            emoji: None,
+            color: "#b8bb26".into(),
+            kind: StateKind::Focus,
+            effects_enabled: false,
+            effects: vec!["shake".into()],
+        };
+        let v = serde_json::to_value(&s).unwrap();
+        assert!(v.get("effectsEnabled").is_none());
+        assert!(v.get("effects").is_none());
+        let back: PulseState = serde_json::from_value(v).unwrap();
+        assert_eq!(back.kind, StateKind::Focus);
+        assert!(back.effects_enabled);
+        assert!(back.effects.is_empty());
     }
 
     #[test]
