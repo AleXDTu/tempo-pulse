@@ -22,6 +22,12 @@ pub struct PulseState {
     pub emoji: Option<String>,
     pub color: String,
     pub kind: StateKind,
+    /// 特效总开关（「单独开关」的载体）：关掉时保留所选组合但到点不播。仅对 custom 类型生效
+    #[serde(default = "default_true")]
+    pub effects_enabled: bool,
+    /// 进入该状态块时播放的特效；空数组 = 没选特效。仅对 custom 类型生效
+    #[serde(default)]
+    pub effects: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -195,6 +201,8 @@ impl Default for AppConfig {
             emoji: Some("💪".into()),
             color: "#d65d0e".into(), // gruvbox orange
             kind: StateKind::Focus,
+            effects_enabled: true,
+            effects: vec![],
         };
         let slack = PulseState {
             id: uuid::Uuid::new_v4().to_string(),
@@ -202,6 +210,8 @@ impl Default for AppConfig {
             emoji: Some("🐟".into()),
             color: "#83a598".into(), // gruvbox blue
             kind: StateKind::Slack,
+            effects_enabled: true,
+            effects: vec![],
         };
         let rest = PulseState {
             id: uuid::Uuid::new_v4().to_string(),
@@ -209,6 +219,8 @@ impl Default for AppConfig {
             emoji: Some("☕".into()),
             color: "#689d6a".into(), // gruvbox aqua
             kind: StateKind::Rest,
+            effects_enabled: true,
+            effects: vec![],
         };
 
         AppConfig {
@@ -375,5 +387,63 @@ mod tests {
         assert!(cfg.settings.legal_days.enabled);
         assert!(cfg.settings.mini.always_visible);
         assert_eq!(cfg.settings.rest_screen.mode, "fullscreen");
+    }
+
+    #[test]
+    fn legacy_state_without_effect_fields_defaults() {
+        // 第 1 期前的旧配置：状态没有 effectsEnabled / effects 字段，
+        // 反序列化补默认（总开关开、特效为空），其余字段不丢
+        let legacy = r##"{
+            "id":"s1","label":"写作","emoji":"✍️","color":"#d3869b","kind":"custom"
+        }"##;
+        let s: PulseState = serde_json::from_str(legacy).unwrap();
+        assert!(s.effects_enabled);
+        assert!(s.effects.is_empty());
+        assert_eq!(s.label, "写作");
+        assert_eq!(s.kind, StateKind::Custom);
+    }
+
+    #[test]
+    fn effect_fields_roundtrip_camel_case() {
+        // 新字段以 camelCase 序列化（与前端 types.ts 对应）；总开关关掉时所选组合原样保留
+        let s = PulseState {
+            id: "s1".into(),
+            label: "写作".into(),
+            emoji: None,
+            color: "#d3869b".into(),
+            kind: StateKind::Custom,
+            effects_enabled: false,
+            effects: vec!["shake".into(), "finale".into()],
+        };
+        let v = serde_json::to_value(&s).unwrap();
+        assert_eq!(v["effectsEnabled"], false);
+        assert_eq!(v["effects"], serde_json::json!(["shake", "finale"]));
+        let back: PulseState = serde_json::from_value(v).unwrap();
+        assert_eq!(back, s);
+    }
+
+    #[test]
+    fn legacy_config_file_loads_states_with_effect_defaults() {
+        // 旧格式 config.json（状态无特效字段）落临时文件走 load_or_default：
+        // 正常加载，状态补上默认特效字段；临时文件用后即删，不碰真实配置
+        let path = std::env::temp_dir()
+            .join(format!("tempo-pulse-test-legacy-effects-{}.json", std::process::id()));
+        let legacy = r##"{
+            "states": [{"id":"s1","label":"写作","emoji":null,"color":"#d3869b","kind":"custom"}],
+            "schedules": [],
+            "settings": {
+                "mini": {"x":null,"y":null,"visible":true},
+                "restScreen": {"bgType":"color","bgValue":"#000000","title":"t","subtitle":"s","strictness":"skippable"},
+                "autostart": false,
+                "notifications": true
+            }
+        }"##;
+        std::fs::write(&path, legacy).unwrap();
+        let cfg = load_or_default(&path);
+        let _ = std::fs::remove_file(&path);
+        let s = &cfg.states[0];
+        assert_eq!(s.kind, StateKind::Custom);
+        assert!(s.effects_enabled);
+        assert!(s.effects.is_empty());
     }
 }

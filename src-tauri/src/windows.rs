@@ -214,6 +214,31 @@ pub fn toggle_main(app: &AppHandle) {
     }
 }
 
+/// 主窗震动（自定义状态特效）：在 origin 附近水平正弦衰减抖动，结束后精确复位。
+/// duration_ms 总时长、amplitude 初始幅度（物理像素），数值由调用方决定。
+/// 跑在阻塞线程上循环 set_position（窗口方法线程安全，内部派发回主线程执行）。
+pub fn shake_main(
+    win: &tauri::WebviewWindow,
+    origin: PhysicalPosition<i32>,
+    duration_ms: u64,
+    amplitude: f64,
+) {
+    const STEP_MS: u64 = 16;
+    let mut elapsed: u64 = 0;
+    while elapsed < duration_ms {
+        let t = elapsed as f64 / duration_ms as f64;
+        // 线性衰减包络 × 约 8Hz 正弦（周期约 125ms）
+        let offset = amplitude * (1.0 - t) * (elapsed as f64 / 20.0).sin();
+        let _ = win.set_position(PhysicalPosition::new(
+            origin.x + offset.round() as i32,
+            origin.y,
+        ));
+        std::thread::sleep(std::time::Duration::from_millis(STEP_MS));
+        elapsed += STEP_MS;
+    }
+    let _ = win.set_position(origin);
+}
+
 /// 迷你窗位置持久化（带节流，Moved 事件高频触发）
 pub fn save_mini_position(app: &AppHandle, pos: PhysicalPosition<i32>) {
     use std::sync::atomic::{AtomicU64, Ordering};

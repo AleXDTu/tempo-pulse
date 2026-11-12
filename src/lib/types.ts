@@ -3,12 +3,19 @@
 
 export type StateKind = "focus" | "rest" | "slack" | "custom";
 
+/** 进入自定义状态块时播放的特效类型；新增类型只改这里和 effects.ts 的播放器注册表 */
+export type StateEffectType = "shake" | "finale";
+
 export interface PulseState {
   id: string;
   label: string;
   emoji: string | null;
   color: string;
   kind: StateKind;
+  /** 特效总开关（「单独开关」的载体）：关掉时保留所选组合但到点不播。仅对 custom 类型生效 */
+  effects_enabled?: boolean;
+  /** 进入该状态块时播放的特效；空数组 = 没选特效。仅对 custom 类型生效 */
+  effects?: StateEffectType[];
 }
 
 export interface TimeBlock {

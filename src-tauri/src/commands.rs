@@ -82,6 +82,22 @@ pub fn show_main_window(app: AppHandle) {
     windows::show_main(&app);
 }
 
+/// 主窗震动（自定义状态特效）：正弦衰减抖动后精确复位。
+/// duration_ms / amplitude 由调用方传入（第一版固定档 600ms / 6px 在播放器侧决定）；
+/// 命令在震动完全结束并复位后才返回，保证多个特效依次播放。
+#[tauri::command]
+pub async fn shake_main_window(app: AppHandle, duration_ms: u64, amplitude: f64) {
+    let win = app
+        .get_webview_window(windows::MAIN)
+        .expect("主窗不存在");
+    let origin = win.outer_position().expect("读取主窗位置失败");
+    tauri::async_runtime::spawn_blocking(move || {
+        windows::shake_main(&win, origin, duration_ms, amplitude);
+    })
+    .await
+    .expect("震动线程异常退出");
+}
+
 /// 打开配置目录（用户可手动修正法定节假日/调休数据）
 #[tauri::command]
 pub fn open_config_dir(app: AppHandle) -> Result<(), String> {

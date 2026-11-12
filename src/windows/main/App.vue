@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref, computed, watch } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import { usePulseStore } from "../../stores/pulse";
 import { useConfigStore } from "../../stores/config";
+import { playEffects } from "../../lib/effects";
+import type { PulseState } from "../../lib/types";
 import ScheduleView from "./ScheduleView.vue";
 import StatesView from "./StatesView.vue";
 import SettingsView from "./SettingsView.vue";
@@ -66,6 +69,35 @@ const hintLine = computed(() => {
 async function toggleRun() {
   await pulse.setRunning(!running.value);
 }
+
+/** 特效层挂载点：特效播放器（结算画面等）往里挂 DOM，空着时不拦截任何交互 */
+const effectLayer = ref<HTMLElement | null>(null);
+/** 播放中标志：两次震动并发会让第二次把「震偏的位置」当原点复位，必须挡住 */
+let effectPlaying = false;
+
+/** 特效编排：先把主窗带到眼前（只配结算画面这类组合同样会被带出来），再依次播放全部所选特效 */
+async function playStateEffects(s: PulseState) {
+  const names = s.effects ?? [];
+  if (effectPlaying || names.length === 0 || !effectLayer.value) return;
+  effectPlaying = true;
+  try {
+    await invoke("show_main_window");
+    await playEffects(names, { invoke, state: s, mount: effectLayer.value });
+  } finally {
+    effectPlaying = false;
+  }
+}
+
+// 进入自定义状态块触发特效（块结束不触发）；系统通知由 Rust 照发，两者互不影响
+watch(
+  () => pulse.lastTransition,
+  (t) => {
+    if (!t) return;
+    const s = t.to.state;
+    if (!s || s.kind !== "custom" || s.effects_enabled === false) return;
+    void playStateEffects(s);
+  },
+);
 </script>
 
 <template>
@@ -172,12 +204,15 @@ async function toggleRun() {
     <main class="min-h-0 flex-1 px-5 py-4">
       <OverlayScroll>
         <ScheduleView v-if="tab === 'schedule'" />
-        <StatesView v-else-if="tab === 'states'" />
+        <StatesView v-else-if="tab === 'states'" @preview="playStateEffects" />
         <SettingsView v-else />
       </OverlayScroll>
     </main>
 
     <!-- 首次启动引导 -->
     <Onboarding v-if="config.settings && !config.settings.onboarded" />
+
+    <!-- 特效层：特效播放器的挂载容器（结算画面等），平时不拦截任何交互 -->
+    <div ref="effectLayer" class="pointer-events-none fixed inset-0 z-50"></div>
   </div>
 </template>

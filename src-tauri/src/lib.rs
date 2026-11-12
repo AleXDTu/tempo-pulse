@@ -110,6 +110,7 @@ pub fn run() {
             commands::save_settings,
             commands::set_mini_visible,
             commands::show_main_window,
+            commands::shake_main_window,
             commands::open_config_dir,
             commands::skip_current_block,
             commands::set_running,

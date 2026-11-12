@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useConfigStore } from "../../stores/config";
-import type { PulseState, StateKind } from "../../lib/types";
+import type { PulseState, StateEffectType, StateKind } from "../../lib/types";
+import { EFFECT_ENTRIES } from "../../lib/effects";
 
 const config = useConfigStore();
+/** 预览请求上抛给 App.vue 统一编排（主窗带到眼前 + 特效层都在那层） */
+const emit = defineEmits<{ preview: [state: PulseState] }>();
 
 const KINDS: { value: StateKind; label: string; hint: string; reaction: string }[] = [
   { value: "focus", label: "认真", hint: "进入时提醒", reaction: "结束前 5 分钟收尾预告" },
   { value: "slack", label: "摸鱼", hint: "轻松段", reaction: "结束前 2 分钟收敛预告 · ⌘⇧H 一键掩护" },
   { value: "rest", label: "休息", hint: "主动安排的休息", reaction: "弹出休息屏（全屏/小窗）" },
-  { value: "custom", label: "自定义", hint: "只有切换通知", reaction: "仅切换通知" },
+  {
+    value: "custom",
+    label: "自定义",
+    hint: "自由安排的时段",
+    reaction: "切换通知 + 可配置特效（震动/结算画面）",
+  },
 ];
 
 const working = ref<PulseState[]>([]);
@@ -47,11 +55,21 @@ function addState() {
     emoji: "✨",
     color: "#d3869b",
     kind: "custom",
+    effects_enabled: true,
+    effects: [],
   });
 }
 
 function removeState(id: string) {
   working.value = working.value.filter((s) => s.id !== id);
+}
+
+function toggleEffect(s: PulseState, key: StateEffectType) {
+  const list = s.effects ?? [];
+  const i = list.indexOf(key);
+  if (i >= 0) list.splice(i, 1);
+  else list.push(key);
+  s.effects = list;
 }
 
 async function save() {
@@ -125,56 +143,92 @@ async function save() {
         <div
           v-for="s in working"
           :key="s.id"
-          class="flex items-center gap-3 rounded-xl border border-line bg-base-deep/30 p-3"
+          class="rounded-xl border border-line bg-base-deep/30 p-3"
         >
-          <div
-            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl"
-            :style="{ backgroundColor: s.color + '22' }"
-          >
-            <input
-              v-model="s.emoji"
-              maxlength="4"
-              class="w-full bg-transparent text-center outline-none"
-              title="表情"
-            />
-          </div>
-          <div class="min-w-0 flex-1 space-y-2">
-            <div class="flex items-center gap-2">
+          <div class="flex items-center gap-3">
+            <div
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl"
+              :style="{ backgroundColor: s.color + '22' }"
+            >
               <input
-                v-model="s.label"
-                class="h-7 w-28 rounded-lg border border-line bg-base-deep/50 px-2 py-0 text-sm text-primary outline-none placeholder:text-tertiary/70 focus:border-accent"
-                placeholder="名称"
+                v-model="s.emoji"
+                maxlength="4"
+                class="w-full bg-transparent text-center outline-none"
+                title="表情"
               />
-              <select
-                v-model="s.kind"
-                class="h-7 rounded-lg border border-line bg-surface px-2 py-0 text-xs text-primary outline-none"
-                :title="KINDS.find((k) => k.value === s.kind)?.hint"
-              >
-                <option v-for="k in KINDS" :key="k.value" :value="k.value">
-                  {{ k.label }}
-                </option>
-              </select>
-              <label class="flex items-center gap-1 text-xs text-tertiary">
+            </div>
+            <div class="min-w-0 flex-1 space-y-2">
+              <div class="flex items-center gap-2">
                 <input
-                  v-model="s.color"
-                  type="color"
-                  class="h-7 w-9 cursor-pointer rounded border-none bg-transparent"
+                  v-model="s.label"
+                  class="h-7 w-28 rounded-lg border border-line bg-base-deep/50 px-2 py-0 text-sm text-primary outline-none placeholder:text-tertiary/70 focus:border-accent"
+                  placeholder="名称"
                 />
-                颜色
+                <select
+                  v-model="s.kind"
+                  class="h-7 rounded-lg border border-line bg-surface px-2 py-0 text-xs text-primary outline-none"
+                  :title="KINDS.find((k) => k.value === s.kind)?.hint"
+                >
+                  <option v-for="k in KINDS" :key="k.value" :value="k.value">
+                    {{ k.label }}
+                  </option>
+                </select>
+                <label class="flex items-center gap-1 text-xs text-tertiary">
+                  <input
+                    v-model="s.color"
+                    type="color"
+                    class="h-7 w-9 cursor-pointer rounded border-none bg-transparent"
+                  />
+                  颜色
+                </label>
+              </div>
+              <p class="truncate text-xs text-accent">
+                ⚡ {{ KINDS.find((k) => k.value === s.kind)?.reaction }}
+              </p>
+            </div>
+            <button
+              class="rounded-lg px-2 py-1 text-tertiary transition hover:bg-danger hover:text-on-accent disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              :disabled="referencedIds.has(s.id)"
+              :title="referencedIds.has(s.id) ? '已被时间块引用，不可删除' : '删除此状态'"
+              @click="removeState(s.id)"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- custom 类型：进入时特效配置区（总开关 + 从注册表渲染的多选 + 预览） -->
+          <div v-if="s.kind === 'custom'" class="mt-3 border-t border-line pt-2.5">
+            <div class="flex items-center justify-between">
+              <label class="flex items-center gap-2 text-xs text-secondary">
+                <input v-model="s.effects_enabled" type="checkbox" class="h-4 w-4" />
+                进入时特效
+                <span class="text-tertiary">总开关临时关掉，不丢所选组合</span>
+              </label>
+              <button
+                class="rounded-lg border border-line bg-base-deep/40 px-2.5 py-1 text-xs text-secondary transition hover:bg-raised hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                :disabled="(s.effects ?? []).length === 0"
+                title="立即完整播放一次所选特效"
+                @click="emit('preview', s)"
+              >
+                预览
+              </button>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 pl-6">
+              <label
+                v-for="e in EFFECT_ENTRIES"
+                :key="e.key"
+                class="flex items-center gap-1.5 text-xs text-secondary"
+              >
+                <input
+                  type="checkbox"
+                  class="h-4 w-4"
+                  :checked="(s.effects ?? []).includes(e.key)"
+                  @change="toggleEffect(s, e.key)"
+                />
+                {{ e.def.label }}
               </label>
             </div>
-            <p class="truncate text-xs text-accent">
-              ⚡ {{ KINDS.find((k) => k.value === s.kind)?.reaction }}
-            </p>
           </div>
-          <button
-            class="rounded-lg px-2 py-1 text-tertiary transition hover:bg-danger hover:text-on-accent disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-            :disabled="referencedIds.has(s.id)"
-            :title="referencedIds.has(s.id) ? '已被时间块引用，不可删除' : '删除此状态'"
-            @click="removeState(s.id)"
-          >
-            ✕
-          </button>
         </div>
       </div>
     </section>

@@ -457,6 +457,8 @@ mod tests {
                 emoji: None,
                 color: "#f97316".into(),
                 kind: StateKind::Focus,
+                effects_enabled: true,
+                effects: vec![],
             },
             PulseState {
                 id: "rest".into(),
@@ -464,6 +466,8 @@ mod tests {
                 emoji: None,
                 color: "#34d399".into(),
                 kind: StateKind::Rest,
+                effects_enabled: true,
+                effects: vec![],
             },
         ]
     }
