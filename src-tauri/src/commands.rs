@@ -109,6 +109,14 @@ pub fn open_config_dir(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// 打开摸鱼网页入口（微信读书/小红书）：窗口已存在则聚焦复用，不存在则创建。
+/// 站点白名单在 windows::WEB_ENTRIES，前端传不了任意地址；
+/// 远程窗口不进 capabilities，零 Tauri IPC 权限。
+#[tauri::command]
+pub fn open_web_entry(app: AppHandle, id: String) -> Result<(), String> {
+    windows::open_web_entry(&app, &id).map_err(|e| e.to_string())
+}
+
 /// 开始 / 停止节奏总开关：停止时引擎不计时。
 /// 重新开始会重置切换记忆，当前块按「新进入」处理（在休息块内则立即弹休息屏）。
 pub fn do_set_running(app: &AppHandle, running: bool) {

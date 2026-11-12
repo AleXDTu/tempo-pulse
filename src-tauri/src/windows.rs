@@ -16,6 +16,35 @@ const REST_FULL_H: f64 = 640.0;
 const REST_WIN_W: f64 = 380.0;
 const REST_WIN_H: f64 = 520.0;
 
+/// 摸鱼网页入口白名单：id 由前端传入，URL 只能来自这张表。
+/// 远程窗口的 label 不写进任何 capability，页面拿不到 Tauri IPC 权限。
+pub struct WebEntry {
+    pub id: &'static str,
+    /// Tauri 窗口 label（web- 前缀区分于本地窗口）
+    pub label: &'static str,
+    /// 窗口标题栏显示的站点名
+    pub title: &'static str,
+    pub url: &'static str,
+}
+
+const WEB_W: f64 = 1200.0;
+const WEB_H: f64 = 800.0;
+
+pub const WEB_ENTRIES: &[WebEntry] = &[
+    WebEntry {
+        id: "weread",
+        label: "web-weread",
+        title: "微信读书",
+        url: "https://weread.qq.com/",
+    },
+    WebEntry {
+        id: "xhs",
+        label: "web-xhs",
+        title: "小红书",
+        url: "https://www.xiaohongshu.com/",
+    },
+];
+
 /// 迷你窗悬浮行为：置顶 + macOS 跨 Space 常驻
 fn apply_mini_float(win: &tauri::WebviewWindow, on: bool) {
     let _ = win.set_always_on_top(on);
@@ -154,24 +183,29 @@ pub fn toggle_mini(app: &AppHandle) {
     set_mini_visible(app, !visible);
 }
 
-/// 老板键（摸鱼掩护 ⌘⇧H）：有窗口可见 → 一键隐藏主窗+迷你窗；全隐藏 → 恢复。
-/// 休息屏不受影响（休息是主动安排，不该被掩护掉）。
+/// 老板键（摸鱼掩护 ⌘⇧H）：有窗口可见 → 一键隐藏主窗+迷你窗+摸鱼网页窗；
+/// 全隐藏 → 恢复。休息屏不受影响（休息是主动安排，不该被掩护掉）。
+/// 网页窗的隐藏只有老板键这一条路径（关闭即销毁、创建即可见），
+/// 所以恢复时把现存的网页窗全部显示回来即可，无需另记隐藏清单。
 pub fn boss_key(app: &AppHandle) {
-    let main_visible = app
-        .get_webview_window(MAIN)
-        .map(|w| w.is_visible().unwrap_or(false))
-        .unwrap_or(false);
-    let mini_visible = app
-        .get_webview_window(MINI)
-        .map(|w| w.is_visible().unwrap_or(false))
-        .unwrap_or(false);
+    let visible = |label: &str| {
+        app.get_webview_window(label)
+            .map(|w| w.is_visible().unwrap_or(false))
+            .unwrap_or(false)
+    };
+    let web_visible = WEB_ENTRIES.iter().any(|e| visible(e.label));
 
-    if main_visible || mini_visible {
+    if visible(MAIN) || visible(MINI) || web_visible {
         if let Some(w) = app.get_webview_window(MAIN) {
             let _ = w.hide();
         }
         if let Some(w) = app.get_webview_window(MINI) {
             let _ = w.hide();
+        }
+        for e in WEB_ENTRIES {
+            if let Some(w) = app.get_webview_window(e.label) {
+                let _ = w.hide();
+            }
         }
     } else {
         if let Some(w) = app.get_webview_window(MAIN) {
@@ -187,6 +221,11 @@ pub fn boss_key(app: &AppHandle) {
         };
         if mini_should_show {
             if let Some(w) = app.get_webview_window(MINI) {
+                let _ = w.show();
+            }
+        }
+        for e in WEB_ENTRIES {
+            if let Some(w) = app.get_webview_window(e.label) {
                 let _ = w.show();
             }
         }
@@ -212,6 +251,37 @@ pub fn toggle_main(app: &AppHandle) {
             let _ = win.set_focus();
         }
     }
+}
+
+/// 白名单检索：查不到说明前端和这张表脱节，直接崩溃（fast-fail）
+fn find_web_entry(id: &str) -> &'static WebEntry {
+    WEB_ENTRIES
+        .iter()
+        .find(|e| e.id == id)
+        .unwrap_or_else(|| panic!("未登记的网页入口 id：{id}（白名单见 WEB_ENTRIES）"))
+}
+
+/// 打开摸鱼网页窗口：该 label 的窗口已存在则 show + set_focus 复用，
+/// 不存在则按白名单创建（1200×800 居中、常规标题栏、不置顶）。
+/// Cookie 留在应用自己的 WebView profile 里，登录一次下次免登。
+/// 关闭走系统默认销毁，不进「关闭转隐藏」（lib.rs 只拦 MAIN/MINI/REST）。
+pub fn open_web_entry(app: &AppHandle, id: &str) -> tauri::Result<()> {
+    let entry = find_web_entry(id);
+    if let Some(win) = app.get_webview_window(entry.label) {
+        win.show()?;
+        win.set_focus()?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(
+        app,
+        entry.label,
+        WebviewUrl::External(entry.url.parse().expect("WEB_ENTRIES 里的 URL 必须全部合法")),
+    )
+    .title(entry.title)
+    .inner_size(WEB_W, WEB_H)
+    .center()
+    .build()?;
+    Ok(())
 }
 
 /// 主窗震动（自定义状态特效）：在 origin 附近水平正弦衰减抖动，结束后精确复位。
@@ -259,4 +329,37 @@ pub fn save_mini_position(app: &AppHandle, pos: PhysicalPosition<i32>) {
     cfg.settings.mini.x = Some(pos.x as f64);
     cfg.settings.mini.y = Some(pos.y as f64);
     let _ = crate::model::save(&st.config_path, &cfg);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn web_entries_登记了微信读书和小红书() {
+        let weread = find_web_entry("weread");
+        assert_eq!(weread.label, "web-weread");
+        assert_eq!(weread.title, "微信读书");
+        assert_eq!(weread.url, "https://weread.qq.com/");
+
+        let xhs = find_web_entry("xhs");
+        assert_eq!(xhs.label, "web-xhs");
+        assert_eq!(xhs.title, "小红书");
+        assert_eq!(xhs.url, "https://www.xiaohongshu.com/");
+    }
+
+    #[test]
+    fn web_entries_的_url_全部可解析() {
+        for e in WEB_ENTRIES {
+            e.url
+                .parse::<tauri::Url>()
+                .unwrap_or_else(|err| panic!("WEB_ENTRIES 里 {} 的 URL 无法解析：{err}", e.id));
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "未登记的网页入口")]
+    fn web_entries_白名单外的_id_直接崩溃() {
+        find_web_entry("任意站点");
+    }
 }

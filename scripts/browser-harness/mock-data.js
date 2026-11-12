@@ -174,6 +174,7 @@
       set_mini_visible: null,
       show_main_window: null,
       open_config_dir: null,
+      open_web_entry: null,
       dismiss_rest_screen: null,
       save_rest_bg_image: () => "/mock-assets/harness-rest-bg.png",
       get_holiday_info: () => ({
@@ -186,6 +187,7 @@
       "plugin:notification|is_permission_granted": true,
       "plugin:notification|request_permission": "granted",
       "plugin:app|version": "0.0.0-harness",
+      "plugin:opener|open_url": null,
     },
 
     // pushTick / pushTransition / pushConfigChanged 的默认载荷

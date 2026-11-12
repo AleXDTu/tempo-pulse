@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useConfigStore } from "../../stores/config";
 import type { PulseState, StateEffectType, StateKind } from "../../lib/types";
 import { EFFECT_ENTRIES } from "../../lib/effects";
@@ -7,6 +9,20 @@ import { EFFECT_ENTRIES } from "../../lib/effects";
 const config = useConfigStore();
 /** 预览请求上抛给 App.vue 统一编排（主窗带到眼前 + 特效层都在那层） */
 const emit = defineEmits<{ preview: [state: PulseState] }>();
+
+/** 摸鱼网页入口：id 与 Rust 侧 windows::WEB_ENTRIES 白名单一一对应 */
+const WEB_ENTRIES = [
+  { id: "weread", label: "微信读书", url: "https://weread.qq.com/" },
+  { id: "xhs", label: "小红书", url: "https://www.xiaohongshu.com/" },
+] as const;
+
+function openWebEntryInApp(id: string) {
+  invoke("open_web_entry", { id });
+}
+
+function openWebEntryInBrowser(url: string) {
+  openUrl(url);
+}
 
 const KINDS: { value: StateKind; label: string; hint: string; reaction: string }[] = [
   { value: "focus", label: "认真", hint: "进入时提醒", reaction: "结束前 5 分钟收尾预告" },
@@ -244,5 +260,37 @@ async function save() {
         保存状态
       </button>
     </div>
+
+    <!-- 摸鱼：网页入口（应用内 WebView 窗口 / 系统浏览器） -->
+    <section class="rounded-2xl border border-line bg-surface p-5">
+      <h3 class="text-sm font-medium text-secondary">摸鱼</h3>
+      <p class="mt-0.5 text-xs text-tertiary">
+        独立窗口随时看，⌘⇧H 一键全部藏起
+      </p>
+      <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div
+          v-for="w in WEB_ENTRIES"
+          :key="w.id"
+          class="rounded-xl border border-line bg-base-deep/30 px-3 py-2.5"
+        >
+          <div class="text-sm font-medium text-primary">{{ w.label }}</div>
+          <p class="mt-0.5 text-xs text-tertiary">登录一次，下次免登</p>
+          <div class="mt-2.5 flex gap-2">
+            <button
+              class="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent transition hover:opacity-90"
+              @click="openWebEntryInApp(w.id)"
+            >
+              应用内打开
+            </button>
+            <button
+              class="rounded-lg border border-line bg-base-deep/40 px-3 py-1.5 text-xs text-secondary transition hover:bg-raised hover:text-primary"
+              @click="openWebEntryInBrowser(w.url)"
+            >
+              浏览器打开
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>

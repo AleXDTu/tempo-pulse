@@ -112,6 +112,7 @@ pub fn run() {
             commands::show_main_window,
             commands::shake_main_window,
             commands::open_config_dir,
+            commands::open_web_entry,
             commands::skip_current_block,
             commands::set_running,
             commands::check_holiday_update,
