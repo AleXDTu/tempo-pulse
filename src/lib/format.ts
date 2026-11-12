@@ -9,6 +9,13 @@ export function formatCountdown(totalSecs: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
+/** 引擎时钟 "H:M:S"（未补零）→ "HH:MM:SS"；格式非法直接抛错 */
+export function normalizeEngineClock(raw: string): string {
+  const m = /^(\d{1,2}):(\d{1,2}):(\d{1,2})$/.exec(raw);
+  if (!m) throw new Error(`引擎时钟格式非法: ${raw}`);
+  return `${m[1].padStart(2, "0")}:${m[2].padStart(2, "0")}:${m[3].padStart(2, "0")}`;
+}
+
 /** "HH:MM" → 当日分钟数；解析失败返回 null */
 export function hhmmToMinutes(hhmm: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());

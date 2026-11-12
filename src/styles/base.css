@@ -65,8 +65,9 @@
 
 /* 全局暗/亮基底，三个窗口共用 */
 :root {
-  font-family: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-    system-ui, -apple-system, sans-serif;
+  /* 拉丁与数字用平台比例宽度字体（约为中文半宽），中文回落黑体类 */
+  font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

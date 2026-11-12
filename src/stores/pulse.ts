@@ -3,7 +3,7 @@ import { ref, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { PulseSnapshot, TransitionPayload } from "../lib/types";
 import { onTick, onTransition } from "../lib/events";
-import { formatCountdown } from "../lib/format";
+import { formatCountdown, normalizeEngineClock } from "../lib/format";
 
 /**
  * 节奏快照 store：数据源是 Rust 引擎，窗口只订阅不持有。
@@ -15,16 +15,21 @@ export const usePulseStore = defineStore("pulse", () => {
   const lastTransition = ref<TransitionPayload | null>(null);
   const inited = ref(false);
 
+  /** 引擎 now 字段未补零（如 "15:7:3"），入库前统一为 "HH:MM:SS" */
+  function normalize(s: PulseSnapshot): PulseSnapshot {
+    return { ...s, now: normalizeEngineClock(s.now) };
+  }
+
   async function init() {
     if (inited.value) return;
     inited.value = true;
-    snapshot.value = await invoke<PulseSnapshot>("get_snapshot");
+    snapshot.value = normalize(await invoke<PulseSnapshot>("get_snapshot"));
     await onTick((s) => {
-      snapshot.value = s;
+      snapshot.value = normalize(s);
     });
     await onTransition((t) => {
       lastTransition.value = t;
-      snapshot.value = t.to;
+      snapshot.value = normalize(t.to);
     });
   }
 
