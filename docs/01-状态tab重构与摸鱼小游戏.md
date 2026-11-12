@@ -4,10 +4,11 @@
 - 状态：规划中
 - 代码基线：main 分支 e7b84a9（v1.4.4，工作区干净）
 - 情报来源：项目记录目录《情报-1 前端视图层》《情报-2 Rust 侧》《情报-3 外部资料》（/Users/evanft/.agents/dispatch-logs/tempo-pulse/2026-11-12-状态tab重构与摸鱼小游戏/）
+- 评审记录：已过一轮方案评审，意见原样存于同目录《谏官-1.md》，全部采纳并改进方案（含：特效可见性编排上移、特效总开关字段、行号勘误、BGM 格式收窄、背景偏离拍板条目的说明、老板键覆盖范围列为待用户拍板项）
 
 ## 起因
 
-现在应用对「状态切换」的反应分三档：休息弹休息屏、认真/摸鱼有结束前预告，而自定义状态只有一条系统通知（engine.rs:407-426 硬编码文案），主窗口本身没有任何动静——通知一闪而过，人不在屏幕前就错过了。同时摸鱼时间没有随手的消遣：想看微信读书/小红书要自己去开浏览器，想玩把小游戏更是无从谈起。
+现在应用对「状态切换」的反应分三档：休息弹休息屏、认真/摸鱼有结束前预告，而自定义状态只有一条系统通知（engine.rs:382-402 硬编码文案），主窗口本身没有任何动静——通知一闪而过，人不在屏幕前就错过了。同时摸鱼时间没有随手的消遣：想看微信读书/小红书要自己去开浏览器，想玩把小游戏更是无从谈起。
 
 这轮要解决的问题：
 
@@ -50,14 +51,14 @@
 
 ### 必须有
 
-1. 自定义状态特效配置：每个自定义状态卡上有特效开关和多选（震动、结算画面），随状态一起保存。
-   - 验收：状态 tab 里新建一个自定义状态，勾选「窗口震动」和「结算画面」两个特效，点保存；重启应用后重新打开状态 tab，两项勾选还在。
+1. 自定义状态特效配置：每个自定义状态卡上有特效总开关和特效多选（震动、结算画面），随状态一起保存；总开关关掉时保留所选组合，重新打开即恢复播放。
+   - 验收：状态 tab 里新建一个自定义状态，打开特效总开关，勾选「窗口震动」和「结算画面」两项，点保存；重启应用后两项勾选和总开关状态都在；再把总开关关掉保存，重启后勾选组合仍保留。
 2. 特效触发：进入配置了特效的自定义状态块时，主窗先确保可见再依次播放全部所选特效。
-   - 验收：把系统时间调到某自定义状态块开始前 1 分钟，按 ⌘⇧M 把主窗藏起来；到点后主窗自动出现，窗口本体左右震动约半秒，随后全窗播放结算粒子动画约 3 秒后自动消失。
+   - 验收：在时间表里把某自定义状态块的开始时间改到约 1 分钟后保存（不动机器时钟，走的就是同一条切换路径），按 ⌘⇧M 把主窗藏起来；到点后主窗自动出现，窗口本体左右震动约半秒，随后全窗播放结算粒子动画约 3 秒后自动消失。
 3. 特效叠加与独立：多个特效同时配置时全部播放；系统通知开关（设置里的通知）与特效互不影响。
    - 验收：同一个状态同时配震动和结算画面，到点两者都播；设置里关掉「系统通知」后特效照播。
 4. 特效扩展机制：新增一种特效只需加一个类型枚举值和一个播放器实现，数据结构不用迁移。
-   - 验收：脚本可验——`src/lib/effects.ts` 的注册表里新增类型后，配置 UI 的选项列表自动出现新项，不需要改 StatesView 的选项硬编码（grep 无新增的选项数组）。
+   - 验收：分两半——脚本可验：配置 UI 的特效选项以 `src/lib/effects.ts` 注册表为唯一来源，StatesView 里 grep 不到硬编码的选项数组；页面必验：开发期临时注册一个试验类型，配置区选项自动出现该项、移除注册后选项消失。
 5. 摸鱼区（状态 tab 新分区）：含微信读书、小红书两个入口，每个入口两种打开方式（应用内窗口/系统浏览器）。
    - 验收：状态 tab 可见「摸鱼」分区；点「微信读书 · 应用内」打开独立窗口加载 weread.qq.com，能扫码登录；关闭窗口后再点一次，窗口重新打开且仍是登录态（Cookie 留存）；点「浏览器打开」调起系统默认浏览器。
 6. 窗口复用：应用内入口已开时再点不重复开新窗，而是聚焦已有窗口。
@@ -116,7 +117,7 @@
 ### 决策二：游戏做成独立 Tauri 窗口 + 自写 Canvas 循环
 
 - **形态**：
-  - **方案 A（推荐）**：独立游戏窗口（label `game`，960×540，无边框自绘顶栏），新 html 入口 `game.html`，照 `create_rest`（windows.rs:97-109）的现成模式创建。
+  - **方案 A（推荐）**：独立游戏窗口（label `game`，960×540，无边框自绘顶栏），新 html 入口 `game.html`，照 `create_rest`（windows.rs:78）的现成模式创建。
     - 好处：尺寸独立于主窗、关闭即销毁不占主窗状态、与现有「一个 html 一个窗口」的三窗架构完全一致（情报-2 §3）；玩的时候主窗可以藏起来（配 ⌘⇧H），更像「弹窗小游戏」。
     - 代价：vite 加一个入口、capabilities 的 windows 数组加一个 label。
   - **方案 B**：主窗内浮层（StatesView 或 App 层挂一个全屏 div）。
@@ -157,36 +158,38 @@ export interface PulseState {
   emoji: string | null;
   color: string;
   kind: StateKind;
-  /** 进入该状态块时播放的特效；空数组 = 无特效。仅对 custom 类型生效 */
+  /** 特效总开关（「单独开关」的载体）：关掉时保留所选组合但到点不播。仅对 custom 类型生效 */
+  effects_enabled?: boolean;
+  /** 进入该状态块时播放的特效；空数组 = 没选特效。仅对 custom 类型生效 */
   effects?: StateEffectType[];
 }
 ```
 
-Rust 侧 `model.rs` 的 `PulseState` 加 `#[serde(default)] pub effects: Vec<String>`（照 model.rs:211-213 的 default 模式，旧配置自动补空数组，并照 model.rs:361-378 加旧配置反序列化测试）。特效配置走现有 `save_states` 全量保存通道，不加新命令。
+Rust 侧 `model.rs` 的 `PulseState` 加两个字段：`#[serde(default = "default_true")] pub effects_enabled: bool`（特效总开关，照 model.rs:211-213 的 default fn 模式）和 `#[serde(default)] pub effects: Vec<String>`（旧配置自动补空数组），并照 model.rs:361-378 加旧配置反序列化测试。特效配置走现有 `save_states` 全量保存通道，不加新命令。
 
 **特效注册表与播放**：
 
 - `src/lib/effects.ts`：`EFFECT_DEFS: Record<StateEffectType, { label: string; play(ctx: EffectContext): Promise<void> }>` 注册表。`EffectContext` 提供 `invoke`、状态（emoji/颜色）、特效层挂载点。新特效 = 加枚举值 + 注册一个播放器，配置 UI 从注册表渲染选项（满足「必须有」第 4 条）。
 - `src/components/effects/FinaleOverlay.vue`：结算特效，全窗 Canvas 粒子——以状态色/emoji 生成的卡片从顶部撒落、重力弹跳、渐次淡出（蜘蛛纸牌 Win 结算的观感），约 3 秒，点击可提前结束。
-- 震动播放器：先 `invoke("show_main_window")`（commands.rs:77-80 已有，幂等）再 `invoke("shake_main_window")`。
-- 触发点：`App.vue` watch pulse store 已有的 `lastTransition`（pulse.ts:14 本来就注释「用于窗口做闪烁动画」，目前无消费者），`to.state.kind === "custom"` 且 `effects` 非空时依次播放。系统通知仍由 Rust 照发（engine.rs:407-426 不动），两者独立。
+- 震动播放器：`invoke("shake_main_window")`；窗口可见性由触发编排层统一保证，播放器只管自己的效果。
+- 触发点：`App.vue` watch pulse store 已有的 `lastTransition`（pulse.ts:14 本来就注释「用于窗口做闪烁动画」，目前无消费者）。命中 `to.state.kind === "custom"`、特效总开关开启且 `effects` 非空时，先 `invoke("show_main_window")`（commands.rs:81-83 已有，show + unminimize + set_focus，幂等）把主窗带到眼前，再依次播放所选特效——「确保可见」放在触发编排层，只配结算画面这类不含震动的组合时主窗同样会被带出来。注册表里不存在的特效名直接跳过不报错（effects 在 Rust 侧是字符串数组，手改配置的笔误不该让播放崩溃）。系统通知仍由 Rust 照发（engine.rs:382-402 不动），两者独立。
 
-**Rust 震动命令**（commands.rs，注册进 lib.rs:111-126）：
+**Rust 震动命令**（commands.rs，注册进 lib.rs:105 的 invoke_handler 数组）：
 
-`shake_main_window(duration_ms, amplitude)`：取主窗当前 outer_position，spawn 线程按正弦衰减在原位附近循环 set_position，结束后精确复位。时长第一版固定 600ms、幅度 6px（播放器侧传参，命令不写死）。Tauri 2 没有官方 shake API（tauri-plugin-notification 的权限表里只有通知本体，情报-3 §3、§4），set_position 循环是可行路径；Windows 上高频 set_position 有重绘闪烁的可能但未实测，本轮只在 macOS 验证（「不做的事」第 9 条）。
+`shake_main_window(duration_ms, amplitude)`：取主窗当前 outer_position，spawn 线程按正弦衰减在原位附近循环 set_position，结束后精确复位。时长第一版固定 600ms、幅度 6px（播放器侧传参，命令不内置固定数值）。Tauri 2 没有官方 shake API（tauri-plugin-notification 的权限表里只有通知本体，情报-3 §3、§4），set_position 循环是可行路径；Windows 上高频 set_position 有重绘闪烁的可能但未实测，本轮只在 macOS 验证（「不做的事」第 9 条）。
 
 **状态 tab 重排**（StatesView.vue）：
 
 - 「状态类型与反应」说明卡：custom 一栏文案从「仅切换通知」改为「切换通知 + 可配置特效（震动/结算画面）」，其余三类不动。
-- 状态卡片：custom 类型的卡片在反应说明行下方展开「进入时特效」配置区——每种特效一个自绘 checkbox（复用 base.css 已有自绘 checkbox 方案，情报-1 §6）+ 一个「预览」小按钮（最好有档）；非 custom 卡片不显示该区。
+- 状态卡片：custom 类型的卡片在反应说明行下方展开「进入时特效」配置区——开头一个特效总开关（「单独开关」的载体，临时全关不丢所选组合），下面每种特效一个自绘 checkbox（复用 base.css 已有自绘 checkbox 方案，情报-1 §6）+ 一个「预览」小按钮（最好有档）；非 custom 卡片不显示该区。
 - 底部保存条沿用现有 dirty/校验/保存逻辑，特效选择随 `saveStates` 一起走。
 
 ### 功能二：摸鱼网页入口
 
-**Rust 侧**（windows.rs 新增或拆 `web_windows.rs`）：
+**Rust 侧**（在 windows.rs 里新增，或另建 `web_windows.rs`）：
 
 - 常量白名单表 `WEB_ENTRIES`：`weread`（微信读书，`https://weread.qq.com/`，1200×800）、`xhs`（小红书，`https://www.xiaohongshu.com/`，1200×800）。
-- 命令 `open_web_entry(id)`：label 已存在 → show + set_focus；不存在 → `WebviewWindowBuilder` + `WebviewUrl::External` 创建，常规标题栏（显示站点名），不置顶。窗口组装照抄 Pake `build_window` / `open_requested_window` 的模板（External URL + 标题 + 聚焦，情报-3 §1「能复用的实现」）。远程窗口的 label（`web-weread`/`web-xhs`）不写进 capabilities 的 windows 数组，保持零 IPC 权限；关闭走系统默认销毁，不进 lib.rs:82-92 的「关闭转隐藏」逻辑（那套只属于常驻的 main/mini）。
+- 命令 `open_web_entry(id)`：label 已存在 → show + set_focus；不存在 → `WebviewWindowBuilder` + `WebviewUrl::External` 创建，常规标题栏（显示站点名），不置顶。窗口组装照抄 Pake `build_window` / `open_requested_window` 的模板（External URL + 标题 + 聚焦，情报-3 §1「能复用的实现」）。远程窗口的 label（`web-weread`/`web-xhs`）不写进 capabilities 的 windows 数组，保持零 IPC 权限；关闭走系统默认销毁，不进 lib.rs:87-96 的「关闭转隐藏」逻辑（那套 match 只拦 MAIN/MINI/REST 三个 label，其余 label 的关闭直接销毁，游戏窗同样适用）。
 - 登录态：WebView 用应用自己的 profile，Cookie 存在应用数据目录，登录一次留存；与系统浏览器不共享登录态（各是各的，扫码登录即可）。两站在系统 WebView 里可用有实证：Pake 官方成品包就有 WeRead 和 XiaoHongShu 且长期维护（情报-3 §6）；是否强制扫码、会不会按 UA 重定向到移动版没查到公开讨论，按第 2 期验证项实测。
 - capability 注意点：本轮不给远程 origin 授权任何权限——这正是 Pake 的做法（它也不给远程页面任何 capability，其窗口层代码注释明确「uncovered label 的每一个 IPC 调用都会被拒绝」，情报-3 §1）；如果后续要做「远程页面里按快捷键回来」之类的增强，才需要 capability 加 `"remote": { "urls": ["https://weread.qq.com"] }` 这类配置（官方写法见 v2.tauri.app/security/capabilities 的 Remote API Access 一节）——那是「以后再说」第 6 条。
 
@@ -205,10 +208,10 @@ Rust 侧 `model.rs` 的 `PulseState` 加 `#[serde(default)] pub effects: Vec<Str
 
 **游戏逻辑层**（`src/game/` 新目录，窗口层只认 `start(canvas)` / `destroy()`）：
 
-- 逻辑分辨率 480×270（16:9），画布整数倍放大到 960×540，`image-rendering: pixelated`；瓦片基准 18px（Kenney Pixel Platformer），逻辑高 270 = 15 瓦片，各层坐标取整对齐像素网格。
+- 逻辑分辨率 480×270（16:9），画布整数倍放大到 960×540，`image-rendering: pixelated`；瓦片基准 18px（Kenney Pixel Platformer），逻辑高 270 = 15 瓦片，各层坐标取整到像素网格。
 - 循环：fixed timestep 60Hz 更新 + rAF 渲染，增量钳制防后台回来跳帧；子弹/敌人/粒子对象池。
 - 分层渲染（后往前）：夜空渐变 + 星星 → 大月亮（极缓慢漂移）→ 云层（慢）→ 远景楼群（程序化剪影，慢）→ 近景楼群（程序化剪影 + 亮窗点阵，中速）→ 屋顶平台（游戏速度，Kenney 瓦片拼装）→ 敌人/子弹/主角 → 偶发前景装饰（天线/广告牌剪影，略快于平台）→ HUD（分数/血量/角度指示）。
-  - 楼群用程序化生成：高度随机的矩形楼 + 少量亮窗，零素材、可随 seed 变化，夜景剪影比贴图更贴气质；瓦片、敌人、子弹用 Kenney 包。
+  - 楼群用程序化生成：高度随机的矩形楼 + 少量亮窗，零素材、可随 seed 变化，夜景剪影比贴图更贴气质；瓦片、敌人、子弹用 Kenney 包。这里与「用户定下的方向」第 2 条有一处偏离要说清楚：拍板写「背景由开发会话从 Kenney 挑」，但 Pixel Platformer 自带的 backgrounds 是通用平台关卡背景，没有夜间城市楼群（情报-3 §5）；程序化剪影更贴魂斗罗三代屋顶夜战的参考画面，所以背景推荐程序化生成、Kenney 用于瓦片/敌人/子弹/主角占位。要严格照拍板条目走，换回 Kenney backgrounds 只是替换两个渲染层的素材来源，结构不变（列为「没定的问题」第 4 条）。
 - 主角：x 固定在屏幕宽 1/3 处，y 由跳跃/重力决定；踩平台（AABB 落在平台顶面）；掉出屏幕底部扣血并在最近平台重生（短暂无敌帧）。跑动动画按世界滚动速度驱动。
 - 射击：机枪连发，5 个角度 = 面向半平面的 {平射, 斜上 45°, 正上 90°, 斜下 -45°, 正下 -90°}，上/下键在 5 档间循环切换（或直接 5 键位，开发会话按手感定），左右键切换面朝方向（镜像弹道），HUD 显示当前角度。
 - 敌人 4 类（参数化：速度/血量/生成权重）：右侧地面爬行（沿平台）、右侧飞行（高度正弦逼近）、上方空降（垂直落向主角附近）、左侧后方突袭（低空快速）。生成间隔随时间缩短（最好有档的难度递增）。
@@ -218,7 +221,7 @@ Rust 侧 `model.rs` 的 `PulseState` 加 `#[serde(default)] pub effects: Vec<Str
 
 **音频与素材管线**：
 
-- BGM：应用数据目录 `game/bgm.mp3|ogg|wav`（第一个匹配的），游戏启动时经 `convertFileSrc` 加载（assetProtocol 已开放 $APPCONFIG/**，tauri.conf.json:28-34，RestApp 背景图同款通道，情报-1 §8）；无文件则静音。加载点集中在 `src/game/audio.ts` 一处，常量写明约定文件名。摸鱼区放「打开游戏资源目录」按钮（Rust 照 `open_config_dir` 模式加 `open_game_dir`，顺带建目录）。
+- BGM：应用数据目录 `game/bgm.mp3|m4a|wav`（第一个匹配的；不收 ogg——macOS 的 WKWebView 对 Ogg Vorbis 支持不完整，收了会出现「无声又说不清是格式问题还是加载点坏了」的排查困难），游戏启动时经 `convertFileSrc` 加载（assetProtocol 已开放 $APPCONFIG/**，tauri.conf.json:28-34，RestApp 背景图同款通道，情报-1 §8）；无文件则静音。加载点集中在 `src/game/audio.ts` 一处，常量写明约定文件名。摸鱼区放「打开游戏资源目录」按钮（Rust 照 `open_config_dir` 模式加 `open_game_dir`，顺带建目录）。
 - 主角替换：应用数据目录 `game/hero/` 下按约定文件名放图（`hero-idle.png`、`hero-run.png`、`hero-jump.png`、`hero-shoot.png`、`hero-hurt.png`，尺寸约定 18×18 或 36×36 两档），`src/game/assets.ts` 启动时探测，缺哪张用内置 Kenney 占位（`src/assets/game/hero-fallback/`）补哪张。替换点集中在 assets.ts 一处 + 目录 README 写清文件名表。
 - Kenney 素材：挑定后解压进 `src/assets/game/kenney/`（import.meta.glob 引入），来源与许可证在 `src/assets/game/README.md` 登记表（满足「必须有」第 12 条）。
 
@@ -232,7 +235,7 @@ Rust 侧 `model.rs` 的 `PulseState` 加 `#[serde(default)] pub effects: Vec<Str
 
 | 改动 | 文件 | 说明 |
 |---|---|---|
-| 数据结构扩展 | `src/lib/types.ts`、`src-tauri/src/model.rs` | PulseState 加 `effects`（serde default + 旧配置反序列化测试，照 model.rs:361-378 模式） |
+| 数据结构扩展 | `src/lib/types.ts`、`src-tauri/src/model.rs` | PulseState 加 `effects_enabled` + `effects`（serde default + 旧配置反序列化测试，照 model.rs:361-378 模式） |
 | 震动命令 | `src-tauri/src/commands.rs`、`src-tauri/src/lib.rs`、`src-tauri/src/windows.rs` | `shake_main_window`（set_position 正弦衰减抖动后复位） |
 | 特效注册表与结算特效 | 新 `src/lib/effects.ts`、新 `src/components/effects/FinaleOverlay.vue` | 注册表 + Canvas 粒子结算动画 |
 | 触发接线 | `src/windows/main/App.vue`（watch lastTransition）、`src/stores/pulse.ts`（如需暴露 effects） | custom + effects 非空时依次播放 |
@@ -262,11 +265,11 @@ Rust 侧 `model.rs` 的 `PulseState` 加 `#[serde(default)] pub effects: Vec<Str
 
 大档，三期串行，每期一个执行会话（Tauri 桌面应用 Rust 改动小，前后端同会话，不开独立后端会话）；每会话独立 worktree（task 的 isolated 参数），当期完成、验证、合并后下一会话开工。
 
-| 会话 | 负责期 | 文件与目录 |
-|---|---|---|
-| 会话 A（前端为主，兼 Rust） | 第 1 期 | `src/lib/types.ts`、`src/lib/effects.ts`（新）、`src/components/effects/`（新）、`src/windows/main/App.vue`、`src/windows/main/StatesView.vue`、`src/stores/pulse.ts`、`src-tauri/src/model.rs`、`src-tauri/src/commands.rs`、`src-tauri/src/windows.rs`、`src-tauri/src/lib.rs`、`CHANGELOG.md` |
-| 会话 B（前端为主，兼 Rust） | 第 2 期 | `src-tauri/src/windows.rs`（或新 `web_windows.rs`）、`src-tauri/src/commands.rs`、`src-tauri/src/lib.rs`、`src/windows/main/StatesView.vue`、`CHANGELOG.md` |
-| 会话 C（前端为主，兼 Rust） | 第 3 期 | `game.html`（新）、`vite.config.ts`、`src/windows/game/`（新）、`src/game/`（新）、`src/assets/game/`（新）、`src/windows/main/StatesView.vue`、`src-tauri/src/windows.rs`、`src-tauri/src/commands.rs`、`src-tauri/src/lib.rs`、`src-tauri/capabilities/default.json`、`package.json`（如需）、`CHANGELOG.md` |
+| 会话 | 负责期 | 需求条目 | 文件与目录 |
+|---|---|---|---|
+| 会话 A（前端为主，兼 Rust） | 第 1 期 | 必须有 1–4、最好有 1 | `src/lib/types.ts`、`src/lib/effects.ts`（新）、`src/components/effects/`（新）、`src/windows/main/App.vue`、`src/windows/main/StatesView.vue`、`src/stores/pulse.ts`、`src-tauri/src/model.rs`、`src-tauri/src/commands.rs`、`src-tauri/src/windows.rs`、`src-tauri/src/lib.rs`、`CHANGELOG.md` |
+| 会话 B（前端为主，兼 Rust） | 第 2 期 | 必须有 5–6、最好有 5 | `src-tauri/src/windows.rs`（或新 `web_windows.rs`）、`src-tauri/src/commands.rs`、`src-tauri/src/lib.rs`、`src/windows/main/StatesView.vue`、`CHANGELOG.md` |
+| 会话 C（前端为主，兼 Rust） | 第 3 期 | 必须有 7–12、最好有 2–4 | `game.html`（新）、`vite.config.ts`、`src/windows/game/`（新）、`src/game/`（新）、`src/assets/game/`（新）、`src/windows/main/StatesView.vue`、`src-tauri/src/windows.rs`、`src-tauri/src/commands.rs`、`src-tauri/src/lib.rs`、`src-tauri/capabilities/default.json`、`package.json`（如需）、`CHANGELOG.md` |
 
 - 两个会话不碰同一个文件靠串行保证：B 等 A 合并后从新基线拉 worktree；C 等 B 合并。共享文件（`StatesView.vue`、`commands.rs`、`windows.rs`、`lib.rs`、`model.rs`/`types.ts`、`CHANGELOG.md`）每期当期会话独占。
 - 各会话照 frontend、backend 角色定义的「提交只含自己的文件」提交：当期提交只包含上表所列当期文件，不带他人未合并改动。
@@ -278,28 +281,29 @@ Rust 侧 `model.rs` 的 `PulseState` 加 `#[serde(default)] pub effects: Vec<Str
 
 ### 第 1 期（加强版通知）
 
-1. 旧配置兼容（脚本可验，会话 A 交验收脚本）：验的是 effects 字段向后兼容。用旧格式 config.json（无 effects）跑 `cargo test`（含新增旧配置反序列化用例）+ 启动应用读配置。通过标准：测试全绿、启动后自定义状态 effects 为空不报错。改前表现：无此字段，新代码直接崩溃或丢配置。
+1. 旧配置兼容（脚本可验，会话 A 交验收脚本）：验的是 effects 和 effects_enabled 字段向后兼容。用旧格式 config.json（无这两个字段）跑 `cargo test`（含新增旧配置反序列化用例）+ 启动应用读配置。通过标准：测试全绿、启动后自定义状态 effects 为空、effects_enabled 为 true，不报错。改前表现：无此字段，新代码直接崩溃或丢配置。
 2. 特效配置 UI（页面必验）：验的是「必须有」第 1 条。状态 tab 新建自定义状态、勾选两个特效、保存、重启应用。通过标准：勾选保留。
-3. 到点触发（页面必验）：验的是「必须有」第 2、3 条。把系统时间调到自定义状态块前 1 分钟、隐藏主窗，等切换。通过标准：主窗自动出现 → 震动约半秒 → 结算动画约 3 秒；关掉系统通知开关重复一次，特效照播。
+3. 到点触发（页面必验）：验的是「必须有」第 2、3 条。在时间表里把自定义状态块的开始时间改到约 1 分钟后保存、隐藏主窗，等切换。通过标准：主窗自动出现 → 震动约半秒 → 结算动画约 3 秒；关掉系统通知开关重复一次，特效照播。
 4. 预览（页面必验）：验的是「最好有」第 1 条。配置区点预览。通过标准：立即完整播放所选特效。
-5. 非自定义状态不受影响（页面必验）：验的是「不做的事」第 7 条。等一个 focus/rest/slack 块切换。通过标准：无特效、原有预告/休息屏行为不变。
+5. 扩展机制（页面必验 + 脚本可验）：验的是「必须有」第 4 条。在 `src/lib/effects.ts` 临时注册一个试验类型再移除。通过标准：配置区选项随之出现/消失；grep StatesView 无硬编码选项数组。
+6. 非自定义状态不受影响（页面必验）：验的是「不做的事」第 7 条。等一个 focus/rest/slack 块切换。通过标准：无特效、原有预告/休息屏行为不变。
 
 ### 第 2 期（摸鱼网页入口）
 
-6. 应用内打开与登录（页面必验）：验的是「必须有」第 5 条。点「微信读书 · 应用内」。通过标准：独立窗口加载 weread.qq.com，能扫码登录。小红书同样验一遍。
-7. 登录态留存（页面必验）：验的是「必须有」第 5 条。登录后关窗，再点入口。通过标准：重开即登录态。
-8. 复用聚焦（页面必验）：验的是「必须有」第 6 条。窗口开着时连点入口三次。通过标准：始终只有一个微信读书窗口且被置前。
-9. 浏览器入口（页面必验）：验的是「必须有」第 5 条。点「浏览器打开」。通过标准：系统默认浏览器打开对应站点。
-10. 远程窗口零权限（脚本可验，会话 B 交验收脚本）：验的是「不做的事」第 4 条。grep `capabilities/` 确认无 `web-weread`/`web-xhs` label、无 remote urls 授权。通过标准：检索为空。
+7. 应用内打开与登录（页面必验）：验的是「必须有」第 5 条。点「微信读书 · 应用内」。通过标准：独立窗口加载 weread.qq.com，能扫码登录。小红书同样验一遍。
+8. 登录态留存（页面必验）：验的是「必须有」第 5 条。登录后关窗，再点入口。通过标准：重开即登录态。
+9. 复用聚焦（页面必验）：验的是「必须有」第 6 条。窗口开着时连点入口三次。通过标准：始终只有一个微信读书窗口且被置前。
+10. 浏览器入口（页面必验）：验的是「必须有」第 5 条。点「浏览器打开」。通过标准：系统默认浏览器打开对应站点。
+11. 远程窗口零权限（脚本可验，会话 B 交验收脚本）：验的是「不做的事」第 4 条。grep `capabilities/` 确认无 `web-weread`/`web-xhs` label、无 remote urls 授权。通过标准：检索为空。
 
 ### 第 3 期（摸鱼小游戏）
 
-11. 入口与窗口（页面必验）：验的是「必须有」第 7 条。点「摸鱼小游戏」。通过标准：960×540 窗口弹出、可拖动、Esc 可暂停、关闭销毁、再开正常；游戏期间迷你窗倒计时继续走。
-12. 核心玩法（页面必验）：验的是「必须有」第 8 条。实际玩一局。通过标准：跳跃/平台间隙、5 角度切换与转身射击、四种敌人、受伤无敌帧、死亡结算与重开全部可复现。
-13. 视差夜景（页面必验）：验的是「必须有」第 9 条。目测。通过标准：六层次速度差异一眼可辨。
-14. BGM 加载点（页面必验）：验的是「必须有」第 10 条。放/删约定文件名 mp3 各开一次游戏。通过标准：有文件循环播放、无文件静音无报错；摸鱼区「打开游戏资源目录」能打开目录。
-15. 主角替换点（页面必验）：验的是「必须有」第 11 条。放/清空 `game/hero/` 各开一次。通过标准：用户图生效/占位图恢复，均无报错。
-16. 构建与素材合规（脚本可验，会话 C 交验收脚本）：验的是「必须有」第 12 条。`pnpm build` + `cargo test` + 素材登记表核对。通过标准：全绿、登记表覆盖 `src/assets/game/` 全部子目录。
+12. 入口与窗口（页面必验）：验的是「必须有」第 7 条。点「摸鱼小游戏」。通过标准：960×540 窗口弹出、可拖动、Esc 可暂停、关闭销毁、再开正常；游戏期间迷你窗倒计时继续走。
+13. 核心玩法（页面必验）：验的是「必须有」第 8 条。实际玩一局。通过标准：跳跃/平台间隙、5 角度切换与转身射击、四种敌人、受伤无敌帧、死亡结算与重开全部可复现。
+14. 视差夜景（页面必验）：验的是「必须有」第 9 条。目测。通过标准：六层次速度差异一眼可辨。
+15. BGM 加载点（页面必验）：验的是「必须有」第 10 条。放/删约定文件名 mp3 各开一次游戏。通过标准：有文件循环播放、无文件静音无报错；摸鱼区「打开游戏资源目录」能打开目录。
+16. 主角替换点（页面必验）：验的是「必须有」第 11 条。放/清空 `game/hero/` 各开一次。通过标准：用户图生效/占位图恢复，均无报错。
+17. 构建与素材合规（脚本可验，会话 C 交验收脚本）：验的是「必须有」第 12 条。`pnpm build` + `cargo test` + 素材登记表核对。通过标准：全绿、登记表覆盖 `src/assets/game/` 全部子目录。
 
 ### 固定回归清单（每期合并前都跑）
 
@@ -314,6 +318,8 @@ Rust 侧 `model.rs` 的 `PulseState` 加 `#[serde(default)] pub effects: Vec<Str
 1. 特效只在「进入自定义状态块」时触发；块结束时要不要也来一次收尾特效？——该用户回答。不卡开工：第一版只做进入时，加结束触发是注册表加一个触发点的小改动。
 2. 游戏窗口固定 960×540；要不要支持拖拽放大（画布等比缩放）？——该用户回答。不卡开工：第一版固定，`start(canvas)` 接口不假设尺寸，后补缩放不用重构。
 3. 微信读书/小红书窗口要不要记住上次大小和位置？——该用户回答。不卡开工：第一版固定 1200×800 居中，位置记忆照 mini 窗模式后补即可。
+4. 游戏背景：拍板方向写「背景由开发会话从 Kenney 挑」，方案推荐程序化生成的城市剪影（理由见「功能三」分层渲染）。——该用户回答。不卡开工：素材来源只在两个渲染层里，先按推荐做，用户要 Kenney 背景随时可换。
+5. ⌘⇧H 老板键目前只隐藏主窗和迷你窗（windows.rs:159 boss_key），第 2、3 期新增的网页窗和游戏窗要不要一并隐藏、恢复时一并恢复？——该用户回答。不卡开工：推荐一并纳入（摸鱼窗口正是老板键要掩护的对象），采纳的话第 2 期把两个网页窗、第 3 期把游戏窗各自随本期窗口纳入 boss_key；不采纳则维持现状，用户自己关窗。
 
 ## 验证结果
 
