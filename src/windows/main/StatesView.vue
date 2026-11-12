@@ -267,7 +267,7 @@ async function save() {
       <p class="mt-0.5 text-xs text-tertiary">
         独立窗口随时看，⌘⇧H 一键全部藏起
       </p>
-      <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <div
           v-for="w in WEB_ENTRIES"
           :key="w.id"
@@ -287,6 +287,27 @@ async function save() {
               @click="openWebEntryInBrowser(w.url)"
             >
               浏览器打开
+            </button>
+          </div>
+        </div>
+        <!-- 第三张卡：摸鱼小游戏（本期入口） -->
+        <div class="rounded-xl border border-line bg-base-deep/30 px-3 py-2.5">
+          <div class="text-sm font-medium text-primary">摸鱼小游戏</div>
+          <p class="mt-0.5 text-xs text-tertiary">
+            像素屋顶夜战 · Esc 暂停 · 关窗不影响计时 · ⌘⇧H 一并掩护
+          </p>
+          <div class="mt-2.5 flex gap-2">
+            <button
+              class="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent transition hover:opacity-90"
+              @click="invoke('toggle_game')"
+            >
+              打开游戏
+            </button>
+            <button
+              class="rounded-lg border border-line bg-base-deep/40 px-3 py-1.5 text-xs text-secondary transition hover:bg-raised hover:text-primary"
+              @click="invoke('open_game_dir')"
+            >
+              打开游戏资源目录
             </button>
           </div>
         </div>

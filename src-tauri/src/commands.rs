@@ -117,6 +117,59 @@ pub fn open_web_entry(app: AppHandle, id: String) -> Result<(), String> {
     windows::open_web_entry(&app, &id).map_err(|e| e.to_string())
 }
 
+/// 打开摸鱼小游戏窗口（摸鱼突击）：已开则聚焦复用，不存在则创建。
+/// 关闭即销毁，不进「关闭转隐藏」。
+#[tauri::command]
+pub fn toggle_game(app: AppHandle) -> Result<(), String> {
+    windows::open_game(&app).map_err(|e| e.to_string())
+}
+
+/// 游戏资源目录（应用数据目录 game/：BGM 与主角替换图都放这里）
+fn game_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?
+        .join("game");
+    std::fs::create_dir_all(dir.join("hero")).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// 打开游戏资源目录（用户往里放 bgm.mp3/bgm.wav 和 hero/*.png）
+#[tauri::command]
+pub fn open_game_dir(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let dir = game_dir(&app)?;
+    app.opener()
+        .open_path(dir.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+/// 探测游戏用户资源：BGM（bgm.mp3/bgm.wav 取先存在的）与主角各状态图的绝对路径，
+/// 没有的返回 null，前端 convertFileSrc 后加载。约定文件名集中在这里和 src/game/assets.ts。
+#[tauri::command]
+pub fn get_game_assets(app: AppHandle) -> Result<serde_json::Value, String> {
+    let dir = game_dir(&app)?;
+    let bgm = ["bgm.mp3", "bgm.wav"].iter().find_map(|f| {
+        let p = dir.join(f);
+        p.is_file().then(|| p.to_string_lossy().into_owned())
+    });
+    let hero_states = ["idle", "run", "jump", "shoot", "hurt"];
+    let hero: serde_json::Map<String, serde_json::Value> = hero_states
+        .iter()
+        .map(|s| {
+            let p = dir.join("hero").join(format!("hero-{s}.png"));
+            let v = if p.is_file() {
+                serde_json::Value::String(p.to_string_lossy().into_owned())
+            } else {
+                serde_json::Value::Null
+            };
+            (s.to_string(), v)
+        })
+        .collect();
+    Ok(serde_json::json!({ "bgm": bgm, "hero": hero }))
+}
+
 /// 开始 / 停止节奏总开关：停止时引擎不计时。
 /// 重新开始会重置切换记忆，当前块按「新进入」处理（在休息块内则立即弹休息屏）。
 pub fn do_set_running(app: &AppHandle, running: bool) {

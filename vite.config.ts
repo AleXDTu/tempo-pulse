@@ -10,13 +10,14 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [vue(), tailwindcss()],
 
-  // 三窗口 = 三个页面入口：主窗 index / 迷你悬浮窗 mini / 全屏休息屏 rest
+  // 四窗口 = 四个页面入口：主窗 index / 迷你悬浮窗 mini / 全屏休息屏 rest / 游戏窗 game
   build: {
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
         mini: resolve(__dirname, "mini.html"),
         rest: resolve(__dirname, "rest.html"),
+        game: resolve(__dirname, "game.html"),
       },
     },
   },

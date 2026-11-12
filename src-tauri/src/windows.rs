@@ -7,9 +7,13 @@ use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuild
 pub const MAIN: &str = "main";
 pub const MINI: &str = "mini";
 pub const REST: &str = "rest";
+pub const GAME: &str = "game";
 
 const MINI_W: f64 = 232.0;
 const MINI_H: f64 = 72.0;
+
+const GAME_W: f64 = 960.0;
+const GAME_H: f64 = 540.0;
 
 const REST_FULL_W: f64 = 900.0;
 const REST_FULL_H: f64 = 640.0;
@@ -118,6 +122,26 @@ pub fn create_rest(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// 打开游戏窗口（摸鱼突击）：已开则 show + set_focus 复用，不存在则创建。
+/// 960×540 固定、无边框自绘顶栏（标题/关闭/拖动区在 game.html 里画）。
+/// 关闭即销毁（lib.rs 的「关闭转隐藏」只拦 MAIN/MINI/REST）。
+pub fn open_game(app: &AppHandle) -> tauri::Result<()> {
+    if let Some(win) = app.get_webview_window(GAME) {
+        win.show()?;
+        win.set_focus()?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(app, GAME, WebviewUrl::App("game.html".into()))
+        .title("摸鱼突击")
+        .inner_size(GAME_W, GAME_H)
+        .decorations(false)
+        .resizable(false)
+        .maximizable(false)
+        .center()
+        .build()?;
+    Ok(())
+}
+
 pub fn show_rest(app: &AppHandle) {
     let mode = {
         let st = app.state::<AppState>();
@@ -183,10 +207,10 @@ pub fn toggle_mini(app: &AppHandle) {
     set_mini_visible(app, !visible);
 }
 
-/// 老板键（摸鱼掩护 ⌘⇧H）：有窗口可见 → 一键隐藏主窗+迷你窗+摸鱼网页窗；
+/// 老板键（摸鱼掩护 ⌘⇧H）：有窗口可见 → 一键隐藏主窗+迷你窗+摸鱼网页窗+游戏窗；
 /// 全隐藏 → 恢复。休息屏不受影响（休息是主动安排，不该被掩护掉）。
-/// 网页窗的隐藏只有老板键这一条路径（关闭即销毁、创建即可见），
-/// 所以恢复时把现存的网页窗全部显示回来即可，无需另记隐藏清单。
+/// 网页窗/游戏窗的隐藏只有老板键这一条路径（关闭即销毁、创建即可见），
+/// 所以恢复时把现存的窗口全部显示回来即可，无需另记隐藏清单。
 pub fn boss_key(app: &AppHandle) {
     let visible = |label: &str| {
         app.get_webview_window(label)
@@ -195,12 +219,11 @@ pub fn boss_key(app: &AppHandle) {
     };
     let web_visible = WEB_ENTRIES.iter().any(|e| visible(e.label));
 
-    if visible(MAIN) || visible(MINI) || web_visible {
-        if let Some(w) = app.get_webview_window(MAIN) {
-            let _ = w.hide();
-        }
-        if let Some(w) = app.get_webview_window(MINI) {
-            let _ = w.hide();
+    if visible(MAIN) || visible(MINI) || visible(GAME) || web_visible {
+        for label in [MAIN, MINI, GAME] {
+            if let Some(w) = app.get_webview_window(label) {
+                let _ = w.hide();
+            }
         }
         for e in WEB_ENTRIES {
             if let Some(w) = app.get_webview_window(e.label) {
@@ -228,6 +251,9 @@ pub fn boss_key(app: &AppHandle) {
             if let Some(w) = app.get_webview_window(e.label) {
                 let _ = w.show();
             }
+        }
+        if let Some(w) = app.get_webview_window(GAME) {
+            let _ = w.show();
         }
     }
 }

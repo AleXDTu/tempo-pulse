@@ -174,7 +174,13 @@
       set_mini_visible: null,
       show_main_window: null,
       open_config_dir: null,
-      open_web_entry: null,
+      toggle_game: null,
+      open_game_dir: null,
+      // 游戏用户资源探测：全部为 null → 浏览器里用内置占位图、无 BGM（静音不报错）
+      get_game_assets: () => ({
+        bgm: null,
+        hero: { idle: null, run: null, jump: null, shoot: null, hurt: null },
+      }),
       dismiss_rest_screen: null,
       save_rest_bg_image: () => "/mock-assets/harness-rest-bg.png",
       get_holiday_info: () => ({
@@ -188,6 +194,8 @@
       "plugin:notification|request_permission": "granted",
       "plugin:app|version": "0.0.0-harness",
       "plugin:opener|open_url": null,
+      // 游戏窗顶栏/菜单的关闭按钮（浏览器里点了没效果，只保证不报错）
+      "plugin:window|destroy": null,
     },
 
     // pushTick / pushTransition / pushConfigChanged 的默认载荷

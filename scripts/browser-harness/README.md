@@ -59,6 +59,7 @@ store 的 `init()` 只跑一次（`inited` 标记），装完模拟层必须让�
 await window.__HARNESS__.remount();               // 主窗（默认）
 await window.__HARNESS__.remount("/src/windows/mini/mini.ts");   // 迷你窗页面 /mini.html
 await window.__HARNESS__.remount("/src/windows/rest/rest.ts");   // 休息屏页面 /rest.html
+await window.__HARNESS__.remount("/src/windows/game/game.ts");   // 游戏窗页面 /game.html
 ```
 
 原理：remount 先把旧应用正式卸载（容器的 `__vue_app__.unmount()`）并清空
