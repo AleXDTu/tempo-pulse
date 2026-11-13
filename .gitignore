@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# pnpm 12 的构建脚本许可配置，属本机环境产物
+pnpm-workspace.yaml
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
