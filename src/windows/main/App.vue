@@ -88,11 +88,17 @@ async function playStateEffects(s: PulseState) {
   }
 }
 
-// 进入自定义状态块触发特效（块结束不触发）；系统通知由 Rust 照发，两者互不影响
+// 进入自定义状态块触发特效（块结束不触发）；系统通知由 Rust 照发，两者互不影响。
+// from 为 null 说明切换前没有上一个状态块：应用启动首帧、停止后重开的第一帧都是这样，
+// 用户不是时间到了才进入该块，不播特效。它和「空闲段结束进入块」（同样 from 为 null，
+// 但该播——拍板是特效只在进入该状态块时触发）靠 Rust 侧的 timeDriven 区分：
+// 引擎观察过至少一个 tick 之后的切换才是时间推进造成。放在前端判断而不让 Rust
+// 不发这条事件：首帧的休息屏接管、系统通知仍要照常走，只是特效不播。
 watch(
   () => pulse.lastTransition,
   (t) => {
     if (!t) return;
+    if (t.from === null && t.timeDriven !== true) return;
     const s = t.to.state;
     if (!s || s.kind !== "custom" || s.effectsEnabled === false) return;
     void playStateEffects(s);

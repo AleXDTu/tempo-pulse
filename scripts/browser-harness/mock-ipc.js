@@ -170,11 +170,13 @@
     pushTick(patch = {}) {
       dispatch(DATA.events.tick, { ...clone(DATA.defaults.snapshot), ...patch });
     },
-    /** 推一条 transition；patch 可含 from 和 to（to 浅合并到 defaults.transition.to） */
+    /** 推一条 transition；patch 可含 from 和 to（to 浅合并到 defaults.transition.to）。
+     *  from 用 !== undefined 判断：显式传 null（应用启动首帧的载荷）必须原样生效，
+     *  ?? 会把 null 当「没传」换成默认的专注状态 */
     pushTransition(patch = {}) {
       const base = clone(DATA.defaults.transition);
       dispatch(DATA.events.transition, {
-        from: patch.from ?? base.from,
+        from: patch.from !== undefined ? patch.from : base.from,
         to: { ...base.to, ...(patch.to ?? {}) },
       });
     },

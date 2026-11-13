@@ -173,6 +173,7 @@
       // 其余窗口 / 系统命令：返回形状对了就行
       set_mini_visible: null,
       show_main_window: null,
+      shake_main_window: null,
       open_config_dir: null,
       toggle_game: null,
       open_game_dir: null,

@@ -42,6 +42,9 @@ pub struct Skipped {
 pub struct EngineState {
     last_block_id: Option<String>,
     last_state: Option<PulseState>,
+    /// 本次运行是否已观察过至少一个 tick：false 时引擎看到的块是「睁眼后的第一帧」
+    /// （应用启动 / 停止后重开），它造成的块切换不是时间推进的，载荷 timeDriven=false
+    seen_tick: bool,
     pub skipped: Option<Skipped>,
     /// 用户手动关掉休息屏且未跳过的块（该块内不再弹出）
     pub rest_dismissed_block: Option<String>,
@@ -50,10 +53,12 @@ pub struct EngineState {
 }
 
 impl EngineState {
-    /// 清空切换记忆（启动/停止时调用），下一 tick 将当前块视作「新进入」
+    /// 清空切换记忆（启动/停止时调用），下一 tick 将当前块视作「新进入」，
+    /// 且该次切换不带 timeDriven（用户是自己按的开始，不是时间到了）
     pub fn reset(&mut self) {
         self.last_block_id = None;
         self.last_state = None;
+        self.seen_tick = false;
         self.rest_dismissed_block = None;
         self.pre_end_sent = None;
         self.skipped = None;
@@ -277,6 +282,28 @@ pub fn emit_tick(app: &AppHandle, snap: &PulseSnapshot) {
     let _ = app.emit(crate::EV_TICK, snap);
 }
 
+/// 块切换检测：block_id 与记忆不一致才算切换，返回 (from, time_driven) 给 transition
+/// 载荷。每个运行中的 tick 调用一次，调用即代表引擎观察了这个 tick：
+/// - from：上一个状态。None = 切换前没有状态（启动/重开的第一帧，或空闲段刚结束）；
+/// - time_driven：切换是否时间推进造成。第一帧看到的块不算——应用启动、停止后重新
+///   开始都会让引擎从零观察当前块，用户不是「时间到了」才进入它，前端不播特效；
+///   空闲段结束进入块（from 同样为 None）是时间到了，仍为 true。
+fn detect_block_switch(
+    engine: &mut EngineState,
+    snap: &PulseSnapshot,
+) -> Option<(Option<PulseState>, bool)> {
+    let time_driven = engine.seen_tick;
+    engine.seen_tick = true;
+    if snap.block_id == engine.last_block_id {
+        return None;
+    }
+    let from = engine.last_state.clone();
+    engine.last_block_id = snap.block_id.clone();
+    engine.last_state = snap.state.clone();
+    engine.rest_dismissed_block = None;
+    Some((from, time_driven))
+}
+
 /// 单次 tick：计算快照 → 处理切换副作用 → 推送
 fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let now = Local::now();
@@ -365,18 +392,15 @@ fn tick_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // 块切换检测
-    if snap.block_id != engine.last_block_id {
-        let from_state = engine.last_state.clone();
+    // 块切换检测（timeDriven 的语义见 detect_block_switch：首帧/重开的切换不是时间到了）
+    if let Some((from_state, time_driven)) = detect_block_switch(&mut engine, &snap) {
         let was_rest = from_state
             .as_ref()
             .map(|s| s.kind == StateKind::Rest)
             .unwrap_or(false);
-        engine.last_block_id = snap.block_id.clone();
-        engine.last_state = snap.state.clone();
-        engine.rest_dismissed_block = None;
 
-        let payload = serde_json::json!({ "from": from_state, "to": &snap });
+        let payload =
+            serde_json::json!({ "from": from_state, "to": &snap, "timeDriven": time_driven });
         let _ = app.emit(crate::EV_TRANSITION, &payload);
 
         // 系统通知
@@ -490,6 +514,20 @@ mod tests {
             ],
             active_days: vec![1, 2, 3, 4, 5],
         }
+    }
+
+    /// 上午一个块、下午一个块，中间 4 小时空闲
+    fn gap_schedule() -> Schedule {
+        let mut s = schedule();
+        s.blocks[1] = TimeBlock {
+            id: "g2".into(),
+            start: "16:00".into(),
+            end: "17:00".into(),
+            state_id: "rest".into(),
+            note: None,
+        };
+        s.blocks.truncate(2);
+        s
     }
 
     fn t(h: u32, m: u32, s: u32) -> NaiveTime {
@@ -729,5 +767,70 @@ mod tests {
         let snap = compute_snapshot(&s, &states(), Some(&off), None, true, may1, t(10, 0, 0), None);
         assert_eq!(snap.schedule_name.as_deref(), Some("工作日"));
         assert!(!snap.is_idle);
+    }
+
+    // ---------- 块切换与特效触发（detect_block_switch） ----------
+
+    #[test]
+    fn first_frame_after_startup_is_not_time_driven() {
+        // 应用启动时正处某个块内：引擎记忆为空，第一帧虽判定为「切换」，
+        // 但 from=None 且 time_driven=false，前端不播特效
+        let s = &[schedule()];
+        let st = states();
+        let mut engine = EngineState::default();
+        let snap = compute_snapshot(s, &st, None, None, true, friday(), t(10, 0, 0), None);
+        let (from, time_driven) = detect_block_switch(&mut engine, &snap).unwrap();
+        assert_eq!(from, None);
+        assert!(!time_driven);
+    }
+
+    #[test]
+    fn first_frame_after_restart_is_not_time_driven() {
+        // 停止 → 开始会 reset：同样 from=None 且 time_driven=false，
+        // 用户是自己按的开始，不算「时间到了进入该状态块」
+        let s = &[schedule()];
+        let st = states();
+        let mut engine = EngineState::default();
+        let snap = compute_snapshot(s, &st, None, None, true, friday(), t(10, 0, 0), None);
+        let _ = detect_block_switch(&mut engine, &snap);
+        engine.reset();
+        let (from, time_driven) = detect_block_switch(&mut engine, &snap).unwrap();
+        assert_eq!(from, None);
+        assert!(!time_driven);
+    }
+
+    #[test]
+    fn real_switch_carries_previous_state_and_time_driven() {
+        // 时间推进的真实切换（12:00 专注 → 休息）：from 是上一个状态、time_driven=true
+        let s = &[schedule()];
+        let st = states();
+        let mut engine = EngineState::default();
+        let first = compute_snapshot(s, &st, None, None, true, friday(), t(11, 0, 0), None);
+        detect_block_switch(&mut engine, &first);
+        let next = compute_snapshot(s, &st, None, None, true, friday(), t(12, 0, 0), None);
+        let (from, time_driven) = detect_block_switch(&mut engine, &next).unwrap();
+        assert_eq!(from.as_ref().unwrap().id, "focus");
+        assert!(time_driven);
+    }
+
+    #[test]
+    fn entry_after_idle_gap_is_time_driven() {
+        // 空闲段结束进入块（16:00）：from=None（之前是空闲）但 time_driven=true，
+        // 是时间到了的「进入该状态块」，前端照播特效——只看 from 会误杀这类切换
+        let s = &[gap_schedule()];
+        let st = states();
+        let mut engine = EngineState::default();
+        let in_block = compute_snapshot(s, &st, None, None, true, friday(), t(9, 30, 0), None);
+        detect_block_switch(&mut engine, &in_block); // 启动首帧，不播特效
+        let idle = compute_snapshot(s, &st, None, None, true, friday(), t(12, 30, 0), None);
+        let (from, time_driven) = detect_block_switch(&mut engine, &idle).unwrap();
+        assert_eq!(from.as_ref().unwrap().id, "focus"); // 块结束 → 空闲
+        assert!(time_driven);
+        let still_idle = compute_snapshot(s, &st, None, None, true, friday(), t(15, 0, 0), None);
+        assert!(detect_block_switch(&mut engine, &still_idle).is_none());
+        let entered = compute_snapshot(s, &st, None, None, true, friday(), t(16, 0, 0), None);
+        let (from, time_driven) = detect_block_switch(&mut engine, &entered).unwrap();
+        assert_eq!(from, None);
+        assert!(time_driven);
     }
 }

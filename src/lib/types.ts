@@ -117,4 +117,7 @@ export interface PulseSnapshot {
 export interface TransitionPayload {
   from: PulseState | null;
   to: PulseSnapshot;
+  /** 切换是否时间推进造成（引擎已观察过至少一个 tick）。应用启动首帧、
+   *  停止后重开的第一帧为 false：用户不是时间到了才进入该块，不播特效 */
+  timeDriven?: boolean;
 }
