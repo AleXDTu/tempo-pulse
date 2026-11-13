@@ -1,9 +1,9 @@
 //! 领域模型与持久化。
 //! 与前端 src/lib/types.ts 一一对应（serde camelCase），修改任一侧需同步另一侧。
 
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -68,7 +68,8 @@ pub struct Schedule {
     pub id: String,
     pub name: String,
     pub blocks: Vec<TimeBlock>,
-    /// 生效日，1=周一 … 7=周日
+    /// 生效日，1=周一 … 7=周日（v1.0.0 之前的时间表没有这个键，解析时补空）
+    #[serde(default)]
     pub active_days: Vec<u8>,
 }
 
@@ -271,6 +272,7 @@ impl Default for AppConfig {
 
 /// 读取配置；文件不存在或损坏时回退默认值并立即落盘。
 /// v1.0.x 的硬编码法定日数据在此迁移为「跟随自动数据」。
+/// 解析失败时先把原文件备份到同目录（`.broken-<时间戳>`）再覆盖，用户数据不无声消失。
 pub fn load_or_default(path: &Path) -> AppConfig {
     match std::fs::read_to_string(path) {
         Ok(content) => match serde_json::from_str::<AppConfig>(&content) {
@@ -289,7 +291,17 @@ pub fn load_or_default(path: &Path) -> AppConfig {
             Err(e) => {
                 eprintln!("[tempo-pulse] 配置解析失败，使用默认配置: {e}");
                 let cfg = AppConfig::default();
-                let _ = save(path, &cfg);
+                // 备份成功才允许默认配置覆盖原文件；备份失败（目录只读等）时
+                // 保留原文件不动，应用带默认配置继续跑，等用户手动处理
+                match backup_broken(path) {
+                    Ok(backup) => {
+                        eprintln!("[tempo-pulse] 原文件已备份到 {}", backup.display());
+                        let _ = save(path, &cfg);
+                    }
+                    Err(err) => {
+                        eprintln!("[tempo-pulse] 备份失败（{err}），保留原文件不覆盖");
+                    }
+                }
                 cfg
             }
         },
@@ -299,6 +311,18 @@ pub fn load_or_default(path: &Path) -> AppConfig {
             cfg
         }
     }
+}
+
+/// 把解析失败的原文件复制一份到同目录 `<原名>.broken-<时间戳>`，返回备份路径。
+/// 用复制而不是改名：备份完成之前原文件必须原样留在原地，覆盖只发生在随后的 save。
+fn backup_broken(path: &Path) -> std::io::Result<PathBuf> {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "config.json".into());
+    let ts = Local::now().format("%Y%m%d-%H%M%S");
+    let backup = path.with_file_name(format!("{name}.broken-{ts}"));
+    std::fs::copy(path, &backup).map(|_| backup)
 }
 
 pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
@@ -487,5 +511,51 @@ mod tests {
         assert_eq!(s.kind, StateKind::Custom);
         assert!(s.effects_enabled);
         assert!(s.effects.is_empty());
+    }
+
+    #[test]
+    fn broken_config_backed_up_before_default_overwrites() {
+        // 解析失败：原文件先备份到同目录 .broken-<时间戳>（内容原样），
+        // 原路径随后才是默认配置，用户自建的状态和时间表不无声消失
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("tempo-pulse-test-broken-{}.json", std::process::id()));
+        let broken = r##"{"states": [这才是用户自建的状态，但不是合法 JSON"##;
+        std::fs::write(&path, broken).unwrap();
+        let cfg = load_or_default(&path);
+        let overwritten = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(cfg.states.len(), 3); // 回退默认配置
+        assert_ne!(overwritten, broken); // 原路径已被默认配置覆盖
+
+        let prefix = format!("tempo-pulse-test-broken-{}.json.broken-", std::process::id());
+        let backups: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| {
+                let p = e.ok()?.path();
+                p.file_name()?.to_str()?.starts_with(&prefix).then_some(p)
+            })
+            .collect();
+        assert_eq!(backups.len(), 1, "应恰好备份一份");
+        assert_eq!(std::fs::read_to_string(&backups[0]).unwrap(), broken);
+        let _ = std::fs::remove_file(&backups[0]);
+    }
+
+    #[test]
+    fn legacy_schedule_without_active_days_parses() {
+        // v1.0.0 之前的时间表没有 activeDays 键：照常解析（生效日补空），
+        // 不再因缺字段让整个 config.json 报废、被备份回退
+        let json = serde_json::json!({
+            "states": [],
+            "schedules": [{"id": "a", "name": "老表", "blocks": []}],
+            "settings": {
+                "mini": {"x": null, "y": null, "visible": true},
+                "restScreen": {"bgType": "color", "bgValue": "#000000", "title": "t", "subtitle": "s", "strictness": "skippable"},
+                "autostart": false,
+                "notifications": true
+            }
+        });
+        let cfg: AppConfig = serde_json::from_value(json).unwrap();
+        assert_eq!(cfg.schedules.len(), 1);
+        assert_eq!(cfg.schedules[0].active_days, Vec::<u8>::new());
     }
 }
